@@ -49,10 +49,13 @@ import com.muse.memory.MuseSettings
 fun SettingsScreen(
     settings: MuseSettings,
     memoryText: String,
+    blocklistText: String = "",
     onBack: () -> Unit,
     onChange: ((MuseSettings) -> MuseSettings) -> Unit,
     onSaveMemory: (String) -> Unit,
     onLoadMemory: suspend () -> String,
+    onSaveBlocklist: (String) -> Unit = {},
+    onLoadBlocklist: suspend () -> String = { "" },
     update: UpdateState,
     currentVersion: String,
     repoLabel: String,
@@ -73,9 +76,11 @@ fun SettingsScreen(
     var baseUrl by remember(settings.baseUrl) { mutableStateOf(settings.baseUrl) }
     var maxTokens by remember(settings.maxTokens) { mutableStateOf(settings.maxTokens.toString()) }
     var memory by remember { mutableStateOf(memoryText) }
+    var blocklist by remember { mutableStateOf(blocklistText) }
     var shizukuHint by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         memory = onLoadMemory()
+        blocklist = onLoadBlocklist()
         onRefreshShizuku()
     }
 
@@ -254,6 +259,21 @@ fun SettingsScreen(
                 colors = ButtonDefaults.buttonColors(containerColor = palette.lavender, contentColor = palette.crust),
                 shape = RoundedCornerShape(14.dp),
             ) { Text("保存 memory") }
+            Spacer(Modifier.height(16.dp))
+            SectionLabel("blocklist.txt")
+            MuseField(
+                value = blocklist,
+                onValueChange = { blocklist = it },
+                singleLine = false,
+                placeholder = "一行一条。命中当前界面文字则拒绝点击。留空=不拦截。",
+                modifier = Modifier.fillMaxWidth().height(120.dp),
+            )
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = { onSaveBlocklist(blocklist) },
+                colors = ButtonDefaults.buttonColors(containerColor = palette.lavender, contentColor = palette.crust),
+                shape = RoundedCornerShape(14.dp),
+            ) { Text("保存 blocklist") }
             Spacer(Modifier.height(16.dp))
             Text(
                 "专业名词保持英文：Agent / Tool / Model / Token / Thinking。",

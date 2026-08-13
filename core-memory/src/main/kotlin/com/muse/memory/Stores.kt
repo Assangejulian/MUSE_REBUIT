@@ -11,8 +11,8 @@ import kotlinx.serialization.builtins.ListSerializer
 import java.io.File
 import java.util.UUID
 
-class MemoryFileStore(context: Context) {
-    private val file = File(context.filesDir, "personalization/memory.md")
+class TextFileStore(context: Context, relativePath: String) {
+    private val file = File(context.filesDir, relativePath)
 
     suspend fun read(): String = withContext(Dispatchers.IO) {
         if (!file.exists()) return@withContext ""
@@ -29,9 +29,21 @@ class MemoryFileStore(context: Context) {
                 if (current.isEmpty()) incoming else "$current\n$incoming"
             }
         }
-        file.writeText(next.trim() + if (next.isBlank()) "" else "\n", Charsets.UTF_8)
-        "memory.md 已更新，当前 ${next.length} 字。"
+        file.writeText(if (next.isBlank()) "" else next + "\n", Charsets.UTF_8)
+        "${file.name} 已更新，当前 ${next.length} 字。"
     }
+}
+
+class MemoryFileStore(context: Context) {
+    private val inner = TextFileStore(context, "personalization/memory.md")
+    suspend fun read(): String = inner.read()
+    suspend fun write(op: String, text: String): String = inner.write(op, text)
+}
+
+class BlocklistStore(context: Context) {
+    private val inner = TextFileStore(context, "personalization/blocklist.txt")
+    suspend fun read(): String = inner.read()
+    suspend fun write(text: String): String = inner.write("replace", text)
 }
 
 class SessionRepository(private val db: MuseDatabase) {

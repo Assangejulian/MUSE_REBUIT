@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.muse.agent.AgentConfig
 import com.muse.agent.AgentEvent
+import com.muse.agent.UiSafety
 import com.muse.app.update.UpdateState
 import com.muse.llm.ChatMessage
 import com.muse.llm.MODEL_FLASH
@@ -83,6 +84,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { graph.updates.check() }
         refreshShizuku()
         graph.overlay.onStop = { stop() }
+        viewModelScope.launch { UiSafety.load(graph.blocklist.read()) }
     }
 
     fun refreshShizuku() {
@@ -171,6 +173,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun saveMemory(text: String) {
         viewModelScope.launch {
             graph.memoryFiles.write("replace", text)
+        }
+    }
+
+    suspend fun readBlocklist(): String = graph.blocklist.read()
+
+    fun saveBlocklist(text: String) {
+        viewModelScope.launch {
+            graph.blocklist.write(text)
+            UiSafety.load(text)
         }
     }
 

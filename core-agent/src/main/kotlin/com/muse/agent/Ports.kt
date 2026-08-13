@@ -87,7 +87,7 @@ fun museToolDefinitions(): List<ToolDefinition> = listOf(
     toolSchema(
         name = "open_app",
         description = "Launch an installed app by its display name or package name.",
-        properties = buildProps("name" to "App label or package, e.g. 微信 or com.tencent.mm"),
+        properties = buildProps("name" to "App label or package name"),
         required = listOf("name"),
     ),
     toolSchema(
@@ -196,7 +196,7 @@ Constraints:
 - Prefer concise answers. Think in Chinese (short CoT).
 - UI language is Chinese; keep professional terms in English (Agent, Tool, Model, Token, Thinking, API Key, Session, Shizuku).
 - Reply in Chinese unless the user writes in another language.
-- Do not tap payment, password, verification-code, or permission-grant screens. Call finish and tell the user.
+- If a Tool refuses a click because of the user's blocklist, stop and tell the user.
 
 When the user states a lasting preference, call memory_write.
 Use device_status for time, battery, timezone, or network.
@@ -209,7 +209,6 @@ Device control:
 4. click_node or click_text. After each click/scroll/type, ui_snapshot again.
 5. type_text into the focused field. scroll up/down. keyevent BACK/HOME.
 6. tap/swipe/ui_dump only if snapshot has no useful nodes (custom-drawn UI).
-If a tool returns a 安全策略拦截, stop and tell the user.
 Use note_save when the user asks to keep a note.
 Call finish when a multi-step task is complete.
 """

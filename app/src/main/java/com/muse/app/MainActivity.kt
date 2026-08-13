@@ -83,6 +83,8 @@ class MainActivity : ComponentActivity(), TaskHost {
                                 onChange = viewModel::updateSettings,
                                 onSaveMemory = viewModel::saveMemory,
                                 onLoadMemory = { viewModel.readMemory() },
+                                onSaveBlocklist = viewModel::saveBlocklist,
+                                onLoadBlocklist = { viewModel.readBlocklist() },
                                 update = state.update,
                                 currentVersion = viewModel.currentVersion(),
                                 repoLabel = viewModel.updateRepoLabel(),

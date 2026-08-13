@@ -20,10 +20,10 @@ data class UiNode(
 ) {
     fun label(): String = text.ifBlank { desc }.ifBlank { viewId.substringAfterLast('/') }.ifBlank { cls }
     fun kind(): String = when {
-        editable -> "输入"
-        checkable -> "开关"
-        clickable -> "按钮"
-        else -> "文本"
+        editable -> "input"
+        checkable -> "toggle"
+        clickable -> "button"
+        else -> "text"
     }
 }
 
@@ -35,21 +35,25 @@ data class UiSnapshot(
 )
 
 object UiSafety {
-    private val blocked = listOf(
-        "支付", "付款", "转账", "密码", "验证码", "短信验证",
-        "立即付款", "确认支付", "指纹", "面容", "输入验证码",
-        "同意并继续", "允许访问", "授权登录",
-        "payment", "password", "verify", "otp",
-    )
+    @Volatile
+    var patterns: List<String> = emptyList()
 
-    fun blockReason(snapshot: UiSnapshot): String? {
+    fun load(raw: String) {
+        patterns = raw.lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && !it.startsWith("#") }
+            .toList()
+    }
+
+    fun blockReason(snapshot: UiSnapshot, extra: List<String> = patterns): String? {
+        if (extra.isEmpty()) return null
         val hay = buildString {
             append(snapshot.title)
             append(' ')
-            snapshot.nodes.take(30).forEach { append(it.text).append(' ').append(it.desc).append(' ') }
+            snapshot.nodes.take(40).forEach { append(it.text).append(' ').append(it.desc).append(' ') }
         }
-        val hit = blocked.firstOrNull { hay.contains(it, ignoreCase = true) } ?: return null
-        return "安全策略拦截：当前界面像「$hit」。请你自己操作，Agent 不会点下去。"
+        val hit = extra.firstOrNull { it.isNotBlank() && hay.contains(it, ignoreCase = true) } ?: return null
+        return "blocklist 命中「$hit」，已拒绝点击。"
     }
 }
 

@@ -12,6 +12,8 @@ import com.muse.agent.NotePort
 import com.muse.agent.OkHttpFetcher
 import com.muse.agent.WebSearcher
 import com.muse.llm.DeepSeekClient
+import com.muse.agent.UiSafety
+import com.muse.memory.BlocklistStore
 import com.muse.memory.MemoryFileStore
 import com.muse.memory.MuseDatabase
 import com.muse.memory.NoteStore
@@ -28,6 +30,7 @@ class AppGraph(context: Context) {
     val db = MuseDatabase.create(app)
     val sessions = SessionRepository(db)
     val memoryFiles = MemoryFileStore(app)
+    val blocklist = BlocklistStore(app)
     val notes = NoteStore(db)
     val okHttp = AndroidHttp.client(app)
     val llm = DeepSeekClient(http = okHttp, allowLoopback = false)
