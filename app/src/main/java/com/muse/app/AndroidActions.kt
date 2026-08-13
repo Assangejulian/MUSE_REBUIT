@@ -1,5 +1,7 @@
 package com.muse.app
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -7,8 +9,13 @@ import android.net.Uri
 import com.muse.agent.ActionPort
 import com.muse.agent.UrlBlocked
 import com.muse.agent.UrlGuard
+import com.muse.agent.compactUiDump
+import kotlinx.coroutines.delay
 
-class AndroidActions(context: Context) : ActionPort {
+class AndroidActions(
+    context: Context,
+    private val shizuku: ShizukuGateway,
+) : ActionPort {
     private val app = context.applicationContext
 
     override suspend fun openUrl(url: String): String {
@@ -56,6 +63,55 @@ class AndroidActions(context: Context) : ActionPort {
         val intent = pm.getLaunchIntentForPackage(chosen.second)
             ?: return "错误：无法启动 ${chosen.first}。"
         return launch(intent, "已打开 ${chosen.first}。")
+    }
+
+    override suspend fun shizukuStatus(): String = shizuku.statusLine()
+
+    override suspend fun shell(command: String): String = shizuku.exec(command)
+
+    override suspend fun uiDump(): String {
+        val raw = shizuku.exec(MuseShellService.dumpCommand())
+        if (raw.startsWith("错误：")) return raw
+        val xmlStart = raw.indexOf("<hierarchy")
+        val xml = if (xmlStart >= 0) raw.substring(xmlStart) else raw
+        return compactUiDump(xml)
+    }
+
+    override suspend fun tap(x: Int, y: Int): String =
+        shizuku.exec("input tap $x $y").let { if (it.startsWith("错误：")) it else "已 tap ($x,$y)\n$it" }
+
+    override suspend fun swipe(x1: Int, y1: Int, x2: Int, y2: Int): String =
+        shizuku.exec("input swipe $x1 $y1 $x2 $y2 300").let {
+            if (it.startsWith("错误：")) it else "已 swipe ($x1,$y1)->($x2,$y2)\n$it"
+        }
+
+    override suspend fun type(text: String): String {
+        if (text.isBlank()) return "错误：text 为空。"
+        val ascii = text.all { it.code < 128 }
+        return if (ascii) {
+            val escaped = text.replace(" ", "%s").replace("'", "'\\''")
+            shizuku.exec("input text '$escaped'")
+        } else {
+            val clip = app.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clip.setPrimaryClip(ClipData.newPlainText("muse", text))
+            delay(200)
+            shizuku.exec("input keyevent 279").let {
+                if (it.startsWith("错误：")) it else "已粘贴中文/非 ASCII 文本。"
+            }
+        }
+    }
+
+    override suspend fun key(name: String): String {
+        val code = when (name.trim().uppercase()) {
+            "BACK" -> 4
+            "HOME" -> 3
+            "ENTER", "RETURN" -> 66
+            "RECENTS", "APP_SWITCH" -> 187
+            "DELETE", "DEL" -> 67
+            "PASTE" -> 279
+            else -> name.toIntOrNull()
+        } ?: return "错误：未知按键 $name。可用 BACK / HOME / ENTER / RECENTS / DELETE / PASTE。"
+        return shizuku.exec("input keyevent $code")
     }
 
     private fun launch(intent: Intent, ok: String): String {

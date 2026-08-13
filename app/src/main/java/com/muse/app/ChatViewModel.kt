@@ -51,6 +51,7 @@ data class ChatUiState(
     val update: UpdateState = UpdateState.Idle,
     val updateNotice: String? = null,
     val updateHint: String? = null,
+    val shizukuLine: String = "",
 )
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -79,7 +80,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         viewModelScope.launch { graph.updates.check() }
+        refreshShizuku()
+        graph.overlay.onStop = { stop() }
     }
+
+    fun refreshShizuku() {
+        _state.update { it.copy(shizukuLine = graph.shizuku.statusLine().replace("\n", " · ")) }
+    }
+
+    fun requestShizuku(): String {
+        val msg = graph.shizuku.requestPermission()
+        refreshShizuku()
+        return msg
+    }
+
+    fun overlayReady(): Boolean = graph.overlay.canDraw()
 
     fun checkUpdate() {
         viewModelScope.launch { graph.updates.check() }
@@ -185,6 +200,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val history = graph.sessions.listMessages(sid).dropLastWhile { it.role == "user" && it.content == text }
             val settings = graph.settings.current()
             AgentService.start(getApplication())
+            val floating = settings.floatOnTask
+            if (floating && graph.overlay.canDraw()) {
+                graph.overlay.show()
+                graph.overlay.update("开始任务…", "Thinking")
+                (getApplication() as MuseApplication).taskHost?.enterTaskMode()
+            }
             try {
                 graph.agent.run(
                     history = history,
@@ -199,14 +220,22 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     ),
                 ).collect { event ->
                     when (event) {
-                        is AgentEvent.ThinkingDelta -> patchAssistant(assistantId) {
-                            it.copy(thinking = it.thinking + event.text)
+                        is AgentEvent.ThinkingDelta -> {
+                            patchAssistant(assistantId) {
+                                it.copy(thinking = it.thinking + event.text)
+                            }
+                            val think = _state.value.messages.lastOrNull { msg -> msg.id == assistantId }?.thinking.orEmpty()
+                            graph.overlay.update(think, "Thinking")
                         }
                         is AgentEvent.ContentDelta -> patchAssistant(assistantId) {
                             it.copy(content = it.content + event.text)
                         }
-                        is AgentEvent.ToolStarted -> patchAssistant(assistantId) {
-                            it.copy(tools = it.tools + UiTool(event.name, event.args))
+                        is AgentEvent.ToolStarted -> {
+                            patchAssistant(assistantId) {
+                                it.copy(tools = it.tools + UiTool(event.name, event.args))
+                            }
+                            val think = _state.value.messages.lastOrNull { msg -> msg.id == assistantId }?.thinking.orEmpty()
+                            graph.overlay.update(think, "Tool · ${event.name}")
                         }
                         is AgentEvent.ToolFinished -> patchAssistant(assistantId) {
                             val tools = it.tools.toMutableList()
@@ -244,6 +273,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } finally {
                 AgentService.stop(getApplication())
+                graph.overlay.hide()
+                (getApplication() as MuseApplication).taskHost?.exitTaskMode()
                 _state.update { it.copy(running = false) }
                 patchAssistant(assistantId) { it.copy(streaming = false) }
             }
@@ -254,6 +285,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         runJob?.cancel()
         runJob = null
         AgentService.stop(getApplication())
+        graph.overlay.hide()
+        (getApplication() as MuseApplication).taskHost?.exitTaskMode()
         _state.update { current ->
             current.copy(
                 running = false,

@@ -33,7 +33,9 @@ class AppGraph(context: Context) {
     val llm = DeepSeekClient(http = okHttp, allowLoopback = false)
     val http: HttpPort = OkHttpFetcher(okHttp)
     val search = WebSearcher(okHttp)
-    val actions = AndroidActions(app)
+    val shizuku = ShizukuGateway(app)
+    val overlay = CotOverlay(app)
+    val actions = AndroidActions(app, shizuku)
     val memoryPort = object : MemoryPort {
         override suspend fun read(): String = memoryFiles.read()
         override suspend fun write(op: String, text: String): String = memoryFiles.write(op, text)
@@ -41,7 +43,7 @@ class AppGraph(context: Context) {
     val notePort = object : NotePort {
         override suspend fun save(title: String, body: String): String = notes.save(title, body)
     }
-    val devicePort = AndroidDeviceStatus(app)
+    val devicePort = AndroidDeviceStatus(app, shizuku)
     val agent = AgentRuntime(
         llm = llm,
         memory = memoryPort,
@@ -54,7 +56,10 @@ class AppGraph(context: Context) {
     val updates = UpdateManager(app, okHttp)
 }
 
-class AndroidDeviceStatus(private val context: Context) : DevicePort {
+class AndroidDeviceStatus(
+    private val context: Context,
+    private val shizuku: ShizukuGateway,
+) : DevicePort {
     override suspend fun status(): String {
         val battery = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
         val percent = battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
@@ -79,6 +84,8 @@ class AndroidDeviceStatus(private val context: Context) : DevicePort {
             append("charging=").append(charging)
             append('\n')
             append("network=").append(network)
+            append('\n')
+            append(shizuku.statusLine())
         }
     }
 }

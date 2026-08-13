@@ -15,6 +15,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
 data class AgentConfig(
@@ -180,6 +181,36 @@ class AgentRuntime(
                         val name = args.string("name")
                         if (name.isBlank()) "错误：name 不能为空。" else actions.openApp(name)
                     }
+                    "shizuku_status" -> actions.shizukuStatus()
+                    "ui_dump" -> actions.uiDump()
+                    "tap" -> {
+                        val x = args.int("x")
+                        val y = args.int("y")
+                        if (x == null || y == null) "错误：tap 需要 x 和 y。" else actions.tap(x, y)
+                    }
+                    "swipe" -> {
+                        val x1 = args.int("x1")
+                        val y1 = args.int("y1")
+                        val x2 = args.int("x2")
+                        val y2 = args.int("y2")
+                        if (x1 == null || y1 == null || x2 == null || y2 == null) {
+                            "错误：swipe 需要 x1 y1 x2 y2。"
+                        } else {
+                            actions.swipe(x1, y1, x2, y2)
+                        }
+                    }
+                    "type_text" -> {
+                        val text = args.string("text")
+                        if (text.isBlank()) "错误：text 不能为空。" else actions.type(text)
+                    }
+                    "keyevent" -> {
+                        val name = args.string("name")
+                        if (name.isBlank()) "错误：name 不能为空。" else actions.key(name)
+                    }
+                    "shell" -> {
+                        val command = args.string("command")
+                        if (command.isBlank()) "错误：command 不能为空。" else actions.shell(command)
+                    }
                     "finish" -> "任务已结束：${args.string("summary")}"
                     else -> "错误：未知 Tool ${call.function.name}"
                 }
@@ -202,6 +233,11 @@ private fun parseArgs(raw: String): JsonObject {
 
 private fun JsonObject.string(key: String): String =
     this[key]?.jsonPrimitive?.contentOrNull.orEmpty()
+
+private fun JsonObject.int(key: String): Int? {
+    val primitive = this[key]?.jsonPrimitive ?: return null
+    return primitive.intOrNull ?: primitive.contentOrNull?.toIntOrNull()
+}
 
 private fun clip(text: String): String =
     if (text.length <= TOOL_OUTPUT_LIMIT) text else text.take(TOOL_OUTPUT_LIMIT) + "\n…(已截断)"

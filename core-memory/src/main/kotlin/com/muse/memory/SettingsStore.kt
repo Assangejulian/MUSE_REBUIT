@@ -19,6 +19,7 @@ data class MuseSettings(
     val thinkingEnabled: Boolean = true,
     val maxTokens: Int = DEFAULT_MAX_TOKENS,
     val theme: String = "mocha",
+    val floatOnTask: Boolean = true,
 )
 
 class SettingsStore(context: Context) {
@@ -38,6 +39,7 @@ class SettingsStore(context: Context) {
             .putBoolean(KEY_THINKING, next.thinkingEnabled)
             .putInt(KEY_MAX, next.maxTokens)
             .putString(KEY_THEME, next.theme)
+            .putBoolean(KEY_FLOAT, next.floatOnTask)
             .apply()
         _settings.value = next
     }
@@ -50,6 +52,7 @@ class SettingsStore(context: Context) {
         thinkingEnabled = prefs.getBoolean(KEY_THINKING, true),
         maxTokens = prefs.getInt(KEY_MAX, DEFAULT_MAX_TOKENS),
         theme = prefs.getString(KEY_THEME, "mocha") ?: "mocha",
+        floatOnTask = prefs.getBoolean(KEY_FLOAT, true),
     )
 
     private fun createPrefs(context: Context): SharedPreferences {
@@ -79,5 +82,6 @@ class SettingsStore(context: Context) {
         const val KEY_THINKING = "thinking"
         const val KEY_MAX = "max_tokens"
         const val KEY_THEME = "theme"
+        const val KEY_FLOAT = "float_on_task"
     }
 }

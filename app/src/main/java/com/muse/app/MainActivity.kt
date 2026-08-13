@@ -1,6 +1,9 @@
 package com.muse.app
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -21,11 +24,12 @@ import com.muse.app.ui.SessionsScreen
 import com.muse.app.ui.SettingsScreen
 import com.muse.design.MuseTheme
 import com.muse.design.MuseThemeMode
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), TaskHost {
     private val viewModel: ChatViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        (application as MuseApplication).taskHost = this
         enableEdgeToEdge()
         setContent {
             val state by viewModel.state.collectAsStateWithLifecycle()
@@ -86,11 +90,38 @@ class MainActivity : ComponentActivity() {
                                 onDownloadUpdate = viewModel::downloadUpdate,
                                 onInstallUpdate = { viewModel.installUpdate(context) },
                                 updateHint = state.updateHint,
+                                shizukuLine = state.shizukuLine,
+                                overlayReady = viewModel.overlayReady(),
+                                onRequestShizuku = { viewModel.requestShizuku() },
+                                onRefreshShizuku = viewModel::refreshShizuku,
+                                onRequestOverlay = {
+                                    startActivity(
+                                        Intent(
+                                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                            Uri.parse("package:$packageName"),
+                                        ),
+                                    )
+                                },
                             )
                         }
                     }
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        if ((application as MuseApplication).taskHost === this) {
+            (application as MuseApplication).taskHost = null
+        }
+        super.onDestroy()
+    }
+
+    override fun enterTaskMode() {
+        moveTaskToBack(true)
+    }
+
+    override fun exitTaskMode() {
+        // User can reopen from notification or recents.
     }
 }

@@ -11,3 +11,4 @@
 | `Muse-0.1.2-debug.apk` | 0.1.2 | 2026-08-13 | web_search；open_url / share_text / open_app |
 | `Muse-0.1.3-debug.apk` | 0.1.3 | 2026-08-13 | 修复 VPN 下 DNS 误杀；Bing/百度/DDG/Wiki 多源搜索 |
 | `Muse-0.1.4-debug.apk` | 0.1.4 | 2026-08-13 | 修复 Tool 在主线程联网（NetworkOnMainThreadException） |
+| `Muse-0.2.0-debug.apk` | 0.2.0 | 2026-08-13 | Shizuku 控制（tap/type/ui_dump/shell）+ 任务悬浮窗中文 CoT |

@@ -48,6 +48,13 @@ class FakePorts : MemoryPort, NotePort, DevicePort, HttpPort, SearchPort, Action
     override suspend fun openUrl(url: String): String = "open:$url"
     override suspend fun shareText(text: String): String = "share:$text"
     override suspend fun openApp(name: String): String = "app:$name"
+    override suspend fun shizukuStatus(): String = "shizuku=fake"
+    override suspend fun shell(command: String): String = "shell:$command"
+    override suspend fun uiDump(): String = "* 设置  [0,0][100,100]"
+    override suspend fun tap(x: Int, y: Int): String = "tap $x $y"
+    override suspend fun swipe(x1: Int, y1: Int, x2: Int, y2: Int): String = "swipe"
+    override suspend fun type(text: String): String = "type $text"
+    override suspend fun key(name: String): String = "key $name"
 }
 
 class AgentRuntimeTest {
@@ -138,6 +145,32 @@ class AgentRuntimeTest {
         val names = museToolDefinitions().map { it.function.name }
         assertTrue(names.contains("web_search"))
         assertTrue(names.contains("open_app"))
+        assertTrue(names.contains("ui_dump"))
+        assertTrue(names.contains("tap"))
+        assertTrue(names.contains("shell"))
+    }
+
+    @Test
+    fun shellPolicyBlocksDanger() {
+        assertTrue(ShellPolicy.denyReason("rm -rf /") != null)
+        assertTrue(ShellPolicy.denyReason("pm uninstall com.android.settings") != null)
+        assertTrue(ShellPolicy.denyReason("curl http://x") != null)
+        assertEquals(null, ShellPolicy.denyReason("dumpsys activity top"))
+        assertEquals(null, ShellPolicy.denyReason("input tap 100 200"))
+        assertEquals(null, ShellPolicy.denyReason("uiautomator dump /data/local/tmp/x.xml"))
+    }
+
+    @Test
+    fun compactDumpKeepsClickable() {
+        val xml = """
+            <hierarchy>
+              <node text="设置" clickable="true" bounds="[10,20][80,60]" class="android.widget.TextView"/>
+              <node text="" clickable="false" bounds="[0,0][1,1]" class="android.view.View"/>
+            </hierarchy>
+        """.trimIndent()
+        val compact = compactUiDump(xml)
+        assertTrue(compact.contains("设置"))
+        assertTrue(compact.contains("*"))
     }
 
     @Test

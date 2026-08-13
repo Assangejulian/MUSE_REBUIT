@@ -60,14 +60,21 @@ fun SettingsScreen(
     onDownloadUpdate: () -> Unit,
     onInstallUpdate: () -> Unit,
     updateHint: String? = null,
+    shizukuLine: String = "",
+    overlayReady: Boolean = false,
+    onRequestShizuku: () -> String = { "" },
+    onRefreshShizuku: () -> Unit = {},
+    onRequestOverlay: () -> Unit = {},
 ) {
     val palette = LocalPalette.current
     var apiKey by remember(settings.apiKey) { mutableStateOf(settings.apiKey) }
     var baseUrl by remember(settings.baseUrl) { mutableStateOf(settings.baseUrl) }
     var maxTokens by remember(settings.maxTokens) { mutableStateOf(settings.maxTokens.toString()) }
     var memory by remember { mutableStateOf(memoryText) }
+    var shizukuHint by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         memory = onLoadMemory()
+        onRefreshShizuku()
     }
 
     Column(
@@ -144,6 +151,46 @@ fun SettingsScreen(
                 selected = settings.theme,
                 onSelect = { value -> onChange { it.copy(theme = value) } },
             )
+            Spacer(Modifier.height(16.dp))
+            SectionLabel("任务悬浮窗")
+            ChipRow(
+                options = listOf("on" to "开启", "off" to "关闭"),
+                selected = if (settings.floatOnTask) "on" else "off",
+                onSelect = { value -> onChange { it.copy(floatOnTask = value == "on") } },
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                if (overlayReady) "悬浮窗权限：已授予" else "悬浮窗权限：未授予（任务时无法变成浮窗）",
+                color = if (overlayReady) palette.green else palette.peach,
+                fontSize = 13.sp,
+            )
+            if (!overlayReady) {
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = onRequestOverlay,
+                    colors = ButtonDefaults.buttonColors(containerColor = palette.lavender, contentColor = palette.crust),
+                    shape = RoundedCornerShape(14.dp),
+                ) { Text("去开启悬浮窗权限") }
+            }
+            Spacer(Modifier.height(16.dp))
+            SectionLabel("Shizuku")
+            Text(shizukuLine.ifBlank { "未检测" }, color = palette.subtext0, fontSize = 13.sp)
+            if (shizukuHint != null) {
+                Text(shizukuHint!!, color = palette.peach, fontSize = 13.sp)
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { shizukuHint = onRequestShizuku() },
+                    colors = ButtonDefaults.buttonColors(containerColor = palette.mauve, contentColor = palette.crust),
+                    shape = RoundedCornerShape(14.dp),
+                ) { Text("连接 / 授权") }
+                Button(
+                    onClick = onRefreshShizuku,
+                    colors = ButtonDefaults.buttonColors(containerColor = palette.surface0, contentColor = palette.text),
+                    shape = RoundedCornerShape(14.dp),
+                ) { Text("刷新") }
+            }
             Spacer(Modifier.height(16.dp))
             SectionLabel("max_tokens")
             MuseField(
