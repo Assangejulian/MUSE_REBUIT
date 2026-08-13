@@ -161,5 +161,30 @@ class AgentRuntimeTest {
         } catch (e: UrlBlocked) {
             assertTrue(e.message!!.contains("localhost"))
         }
+        try {
+            UrlGuard.validate("https://192.168.1.1/admin")
+            throw AssertionError("expected block")
+        } catch (e: UrlBlocked) {
+            assertTrue(e.message!!.contains("私网"))
+        }
+        UrlGuard.validate("https://www.baidu.com")
+        UrlGuard.validate("https://www.jiqizhixin.com/articles/1")
+    }
+
+    @Test
+    fun parsesBingAndBaidu() {
+        val bing = parseBingHtml(
+            """<h2><a href="https://deepseek.com/blog">DeepSeek V4</a></h2>
+               <h2><a href="https://www.bing.com/ck/a">junk</a></h2>""",
+            5,
+        )
+        assertEquals(1, bing.size)
+        assertEquals("https://deepseek.com/blog", bing[0].url)
+        val baidu = parseBaiduHtml(
+            """<div class="result" mu="https://www.jiqizhixin.com/articles/v4"><h3><a>机器之心</a></h3></div>""",
+            5,
+        )
+        assertEquals("https://www.jiqizhixin.com/articles/v4", baidu[0].url)
+        assertEquals("机器之心", baidu[0].title)
     }
 }

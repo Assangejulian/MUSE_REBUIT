@@ -29,9 +29,10 @@ class AppGraph(context: Context) {
     val sessions = SessionRepository(db)
     val memoryFiles = MemoryFileStore(app)
     val notes = NoteStore(db)
-    val llm = DeepSeekClient(allowLoopback = false)
-    val http: HttpPort = OkHttpFetcher()
-    val search = WebSearcher()
+    val okHttp = AndroidHttp.client(app)
+    val llm = DeepSeekClient(http = okHttp, allowLoopback = false)
+    val http: HttpPort = OkHttpFetcher(okHttp)
+    val search = WebSearcher(okHttp)
     val actions = AndroidActions(app)
     val memoryPort = object : MemoryPort {
         override suspend fun read(): String = memoryFiles.read()
@@ -50,7 +51,7 @@ class AppGraph(context: Context) {
         search = search,
         actions = actions,
     )
-    val updates = UpdateManager(app)
+    val updates = UpdateManager(app, okHttp)
 }
 
 class AndroidDeviceStatus(private val context: Context) : DevicePort {

@@ -18,18 +18,26 @@ object UrlGuard {
         val scheme = uri.scheme?.lowercase()
         if (scheme != "https") throw UrlBlocked("只允许 https URL。")
         val host = uri.host?.lowercase() ?: throw UrlBlocked("URL 缺少 host。")
-        if (host == "localhost" || host.endsWith(".localhost")) {
+        if (host == "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) {
             throw UrlBlocked("不允许访问 localhost。")
         }
-        val addresses = try {
-            InetAddress.getAllByName(host)
-        } catch (_: Exception) {
-            throw UrlBlocked("无法解析 host：$host")
-        }
-        if (addresses.any { isPrivate(it) }) {
+        if (isLiteralPrivateHost(host)) {
             throw UrlBlocked("不允许访问私网地址。")
         }
         return uri
+    }
+
+    fun isLiteralPrivateHost(host: String): Boolean {
+        val h = host.trim().lowercase().removePrefix("[").removeSuffix("]")
+        if (h == "127.0.0.1" || h == "0.0.0.0" || h == "::1" || h == "https://example.net/id/garnet") return true
+        if (h.startsWith("10.")) return true
+        if (h.startsWith("192.168.")) return true
+        if (h.startsWith("169.254.")) return true
+        if (h.startsWith("172.")) {
+            val second = h.split(".").getOrNull(1)?.toIntOrNull() ?: return false
+            return second in 16..31
+        }
+        return false
     }
 
     fun isPrivate(address: InetAddress): Boolean {

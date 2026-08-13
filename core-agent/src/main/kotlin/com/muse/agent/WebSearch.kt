@@ -23,27 +23,64 @@ class WebSearcher(
     private val http: OkHttpClient = OkHttpClient.Builder()
         .followRedirects(true)
         .followSslRedirects(true)
-        .connectTimeout(12, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(12, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
         .build(),
     private val limit: Int = 5,
 ) : SearchPort {
     override suspend fun search(query: String): String {
         val q = query.trim()
         if (q.isBlank()) return "错误：query 不能为空。"
-        val ddg = runCatching { searchDuckDuckGo(q) }.getOrElse { emptyList() }
-        if (ddg.isNotEmpty()) return formatHits(q, ddg, "DuckDuckGo")
-        val wiki = runCatching { searchWikipedia(q) }.getOrElse { emptyList() }
-        if (wiki.isNotEmpty()) return formatHits(q, wiki, "Wikipedia")
-        return "错误：搜索没有结果。可能是网络拦截了 DuckDuckGo，请开 VPN 后再试。"
+        val errors = ArrayList<String>()
+        val engines = listOf(
+            "Bing" to { searchBing(q) },
+            "Baidu" to { searchBaidu(q) },
+            "DuckDuckGo" to { searchDuckDuckGo(q) },
+            "Wikipedia" to { searchWikipedia(q) },
+        )
+        for ((name, fn) in engines) {
+            val hits = try {
+                fn()
+            } catch (t: Throwable) {
+                errors += "$name: ${t.message ?: t::class.java.simpleName}"
+                emptyList()
+            }
+            if (hits.isNotEmpty()) {
+                val note = if (errors.isEmpty()) "" else "\n(skipped: ${errors.joinToString(" | ")})"
+                return formatHits(q, hits, name) + note
+            }
+            if (errors.none { it.startsWith("$name:") }) {
+                errors += "$name: 没有解析到结果"
+            }
+        }
+        return buildString {
+            append("错误：所有搜索源都失败了。DeepSeek API 能通不代表网页搜索也能通。\n")
+            errors.forEach { append("- ").append(it).append('\n') }
+        }
+    }
+
+    private fun searchBing(query: String): List<SearchHit> {
+        val url = "https://cn.bing.com/search".toHttpUrl().newBuilder()
+            .addQueryParameter("q", query)
+            .addQueryParameter("setlang", "zh-Hans")
+            .build()
+        return parseBingHtml(get(url.toString()), limit)
+    }
+
+    private fun searchBaidu(query: String): List<SearchHit> {
+        val url = "https://www.baidu.com/s".toHttpUrl().newBuilder()
+            .addQueryParameter("wd", query)
+            .addQueryParameter("ie", "utf-8")
+            .build()
+        return parseBaiduHtml(get(url.toString()), limit)
     }
 
     private fun searchDuckDuckGo(query: String): List<SearchHit> {
         val url = "https://html.duckduckgo.com/html/".toHttpUrl().newBuilder()
             .addQueryParameter("q", query)
             .build()
-        val html = get(url.toString())
-        return parseDuckDuckGoHtml(html, limit)
+        return parseDuckDuckGoHtml(get(url.toString()), limit)
     }
 
     private fun searchWikipedia(query: String): List<SearchHit> {
@@ -55,8 +92,7 @@ class WebSearcher(
             .addQueryParameter("namespace", "0")
             .addQueryParameter("format", "json")
             .build()
-        val raw = get(url.toString())
-        return parseWikipediaOpenSearch(raw, limit)
+        return parseWikipediaOpenSearch(get(url.toString()), limit)
     }
 
     private fun get(url: String): String {
@@ -70,10 +106,59 @@ class WebSearcher(
                 .get()
                 .build(),
         ).execute().use { resp ->
-            if (!resp.isSuccessful) throw UrlBlocked("搜索 HTTP ${resp.code}")
+            if (!resp.isSuccessful) throw UrlBlocked("HTTP ${resp.code}")
             return resp.body?.string().orEmpty()
         }
     }
+}
+
+fun parseBingHtml(html: String, limit: Int): List<SearchHit> {
+    val re = Regex(
+        """<h2[^>]*>\s*<a[^>]+href="(https?://[^"]+)"[^>]*>(.*?)</a>""",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+    )
+    return re.findAll(html).mapNotNull { match ->
+        val url = match.groupValues[1].replace("&amp;", "&")
+        val host = runCatching { java.net.URI(url).host?.lowercase() }.getOrNull().orEmpty()
+        if (host.contains("bing.com") || host.contains("microsoft.com") || host.contains("msn.com")) {
+            return@mapNotNull null
+        }
+        val title = htmlToText(match.groupValues[2])
+        if (title.isBlank()) null else SearchHit(title, url, "")
+    }.distinctBy { it.url }.take(limit).toList()
+}
+
+fun parseBaiduHtml(html: String, limit: Int): List<SearchHit> {
+    val muHits = Regex("""\bmu="(https?://[^"]+)"""")
+        .findAll(html)
+        .map { it.groupValues[1].replace("&amp;", "&") }
+        .filter { url ->
+            val host = runCatching { java.net.URI(url).host?.lowercase() }.getOrNull().orEmpty()
+            host.isNotBlank() && !host.contains("baidu.com")
+        }
+        .distinct()
+        .take(limit)
+        .toList()
+    val titles = Regex(
+        """<h3[^>]*>\s*<a[^>]*>(.*?)</a>""",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+    ).findAll(html).map { htmlToText(it.groupValues[1]) }.filter { it.isNotBlank() }.toList()
+    if (muHits.isNotEmpty()) {
+        return muHits.mapIndexed { i, url ->
+            SearchHit(title = titles.getOrNull(i) ?: url, url = url, snippet = "")
+        }
+    }
+    val hrefs = Regex(
+        """<h3[^>]*>\s*<a[^>]+href="(https?://[^"]+)"[^>]*>(.*?)</a>""",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+    )
+    return hrefs.findAll(html).mapNotNull { match ->
+        val url = match.groupValues[1].replace("&amp;", "&")
+        val host = runCatching { java.net.URI(url).host?.lowercase() }.getOrNull().orEmpty()
+        if (host.contains("baidu.com")) return@mapNotNull null
+        val title = htmlToText(match.groupValues[2])
+        if (title.isBlank()) null else SearchHit(title, url, "")
+    }.distinctBy { it.url }.take(limit).toList()
 }
 
 fun parseDuckDuckGoHtml(html: String, limit: Int): List<SearchHit> {
