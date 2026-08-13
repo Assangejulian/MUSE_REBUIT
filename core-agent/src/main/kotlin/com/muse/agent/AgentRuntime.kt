@@ -7,8 +7,11 @@ import com.muse.llm.LlmEvent
 import com.muse.llm.MuseJson
 import com.muse.llm.ToolCall
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -138,12 +141,13 @@ class AgentRuntime(
         } catch (t: Throwable) {
             emit(AgentEvent.Failed(t.message ?: "Agent 循环失败。"))
         }
-    }
+    }.flowOn(Dispatchers.IO)
 
     private suspend fun execute(call: ToolCall): String {
         val args = parseArgs(call.function.arguments)
         return try {
-            withTimeout(TOOL_TIMEOUT_MS) {
+            withContext(Dispatchers.IO) {
+                withTimeout(TOOL_TIMEOUT_MS) {
                 when (call.function.name) {
                     "device_status" -> device.status()
                     "memory_read" -> {
@@ -178,6 +182,7 @@ class AgentRuntime(
                     }
                     "finish" -> "任务已结束：${args.string("summary")}"
                     else -> "错误：未知 Tool ${call.function.name}"
+                }
                 }
             }
         } catch (cancel: CancellationException) {

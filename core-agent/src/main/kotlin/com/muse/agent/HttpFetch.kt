@@ -1,5 +1,7 @@
 package com.muse.agent
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.net.InetAddress
@@ -58,9 +60,9 @@ class OkHttpFetcher(
         .build(),
     private val maxBytes: Int = 64 * 1024,
 ) : HttpPort {
-    override suspend fun fetch(url: String): String {
+    override suspend fun fetch(url: String): String = withContext(Dispatchers.IO) {
         if (isSearchResultsPage(url)) {
-            return "错误：不要抓搜索结果页。请改用 web_search。"
+            return@withContext "错误：不要抓搜索结果页。请改用 web_search。"
         }
         var current = url
         repeat(4) {
@@ -82,7 +84,7 @@ class OkHttpFetcher(
                     return@repeat
                 }
                 if (!resp.isSuccessful) {
-                    return "HTTP $code"
+                    return@withContext "HTTP $code"
                 }
                 val raw = resp.body?.bytes() ?: ByteArray(0)
                 val clipped = if (raw.size > maxBytes) raw.copyOf(maxBytes) else raw
@@ -94,7 +96,7 @@ class OkHttpFetcher(
                     text
                 }
                 val suffix = if (raw.size > maxBytes) "\n…(已截断)" else ""
-                return body.take(maxBytes) + suffix
+                return@withContext body.take(maxBytes) + suffix
             }
         }
         throw UrlBlocked("重定向次数过多。")

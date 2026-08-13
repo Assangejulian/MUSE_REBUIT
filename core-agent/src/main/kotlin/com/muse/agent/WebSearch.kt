@@ -1,5 +1,7 @@
 package com.muse.agent
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -29,9 +31,9 @@ class WebSearcher(
         .build(),
     private val limit: Int = 5,
 ) : SearchPort {
-    override suspend fun search(query: String): String {
+    override suspend fun search(query: String): String = withContext(Dispatchers.IO) {
         val q = query.trim()
-        if (q.isBlank()) return "错误：query 不能为空。"
+        if (q.isBlank()) return@withContext "错误：query 不能为空。"
         val errors = ArrayList<String>()
         val engines = listOf(
             "Bing" to { searchBing(q) },
@@ -48,13 +50,13 @@ class WebSearcher(
             }
             if (hits.isNotEmpty()) {
                 val note = if (errors.isEmpty()) "" else "\n(skipped: ${errors.joinToString(" | ")})"
-                return formatHits(q, hits, name) + note
+                return@withContext formatHits(q, hits, name) + note
             }
             if (errors.none { it.startsWith("$name:") }) {
                 errors += "$name: 没有解析到结果"
             }
         }
-        return buildString {
+        return@withContext buildString {
             append("错误：所有搜索源都失败了。DeepSeek API 能通不代表网页搜索也能通。\n")
             errors.forEach { append("- ").append(it).append('\n') }
         }
