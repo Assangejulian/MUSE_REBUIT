@@ -5,17 +5,21 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import com.muse.agent.ActionPort
 import com.muse.agent.UrlBlocked
 import com.muse.agent.UrlGuard
 import com.muse.agent.compactUiDump
+import com.muse.agent.formatOcrHits
 import com.muse.agent.parseDumpBounds
 import kotlinx.coroutines.delay
 
 class AndroidActions(
     context: Context,
     private val shizuku: ShizukuGateway,
+    private val overlay: CotOverlay? = null,
 ) : ActionPort {
     private val app = context.applicationContext
 
@@ -200,6 +204,36 @@ class AndroidActions(
     override suspend fun waitMs(ms: Int): String {
         delay(ms.toLong())
         return withFreshTree("已等待 ${ms}ms", 0)
+    }
+
+    override suspend fun ocrScreen(): String {
+        val shown = overlay?.isShowing() == true
+        if (shown) overlay?.hide()
+        if (shown) delay(140)
+        return try {
+            val shot = captureScreen() ?: return "错误：截屏失败。打开无障碍（Android 11+）或连接 Shizuku。"
+            val hits = ScreenOcr.read(shot.first)
+            shot.first.recycle()
+            formatOcrHits(hits, shot.second)
+        } catch (t: Throwable) {
+            "错误：OCR 失败：${t.message ?: t::class.java.simpleName}"
+        } finally {
+            if (shown) overlay?.show()
+        }
+    }
+
+    private data class Shot(val first: Bitmap, val second: String)
+
+    private suspend fun captureScreen(): Shot? {
+        a11y()?.captureBitmap()?.let { return Shot(it, "a11y") }
+        if (shizuku.isReady()) {
+            val bytes = shizuku.screenshot()
+            if (bytes != null && bytes.size > 64) {
+                val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                if (bmp != null) return Shot(bmp, "shizuku")
+            }
+        }
+        return null
     }
 
     private suspend fun withFreshTree(status: String, settleMs: Long = 280): String {

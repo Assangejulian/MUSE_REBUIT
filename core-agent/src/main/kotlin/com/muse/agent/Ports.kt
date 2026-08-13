@@ -17,6 +17,7 @@ val OBSERVE_TOOLS = setOf(
     "ui_status",
     "shizuku_status",
     "memory_read",
+    "ocr_screen",
 )
 
 interface MemoryPort {
@@ -55,6 +56,7 @@ fun museToolChoices(): List<ToolChoice> = listOf(
     ToolChoice("open_url", "用浏览器打开"),
     ToolChoice("open_app", "打开应用"),
     ToolChoice("ui_snapshot", "看当前界面"),
+    ToolChoice("ocr_screen", "屏幕 OCR"),
     ToolChoice("click_text", "点文字"),
     ToolChoice("click_node", "点节点"),
     ToolChoice("type_text", "输入文字"),
@@ -138,6 +140,10 @@ fun museToolDefinitions(): List<ToolDefinition> = listOf(
     toolSchema(
         name = "ui_snapshot",
         description = "Observe the current screen as a compact node list. Prefer this before click_node/click_text. Uses Accessibility when on, else Shizuku dump.",
+    ),
+    toolSchema(
+        name = "ocr_screen",
+        description = "OCR the current screen and return visible text with tap centers. Use when the accessibility tree is empty, custom-drawn, or you need to confirm what the user can see. Then tap those coordinates or click_text.",
     ),
     toolSchema(
         name = "find_nodes",
@@ -251,6 +257,7 @@ Device control:
 4. click_node or click_text. The Tool result already includes a fresh snapshot — use those new ids. Do not immediately ui_snapshot again unless the tree looks stale.
 5. type_text into the focused field. scroll up/down. keyevent BACK/HOME.
 6. tap/swipe/ui_dump only if snapshot has no useful nodes (custom-drawn UI).
+7. ocr_screen when the tree is empty, custom-drawn, or you need to double-check visible text. It returns text plus tap centers. Prefer ui_snapshot first — OCR is slower. Use OCR to assist judgment, not as the default look.
 Use note_save when the user asks to keep a note.
 Call finish when a multi-step task is complete.
 """

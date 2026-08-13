@@ -62,6 +62,7 @@ class FakePorts : MemoryPort, NotePort, DevicePort, HttpPort, SearchPort, Action
     override suspend fun clickText(text: String): String = "clickText $text"
     override suspend fun scroll(direction: String): String = "scroll $direction"
     override suspend fun waitMs(ms: Int): String = "wait $ms"
+    override suspend fun ocrScreen(): String = "ocr:ok"
 }
 
 class AgentRuntimeTest {
@@ -255,6 +256,7 @@ class AgentRuntimeTest {
         assertTrue(names.contains("tap"))
         assertTrue(names.contains("shell"))
         assertTrue(names.contains("ui_snapshot"))
+        assertTrue(names.contains("ocr_screen"))
         assertTrue(names.contains("click_node"))
         assertTrue(names.contains("click_text"))
     }
@@ -300,6 +302,16 @@ class AgentRuntimeTest {
             ShellPolicy.denyReason("uiautomator dump /data/local/tmp/muse_ui.xml; cat /data/local/tmp/muse_ui.xml"),
         )
         assertTrue(ShellPolicy.denyReason("uiautomator dump /x >/dev/null 2>&1") != null)
+    }
+
+    @Test
+    fun formatOcrKeepsCenters() {
+        val text = formatOcrHits(
+            listOf(OcrHit("热搜", 120, 340), OcrHit("登录", 540, 80)),
+            "a11y",
+        )
+        assertTrue(text.contains("热搜 (120,340)"))
+        assertTrue(text.contains("source=a11y"))
     }
 
     @Test

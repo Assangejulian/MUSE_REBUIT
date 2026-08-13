@@ -18,3 +18,4 @@
 | `Muse-0.3.3-debug.apk` | 0.3.3 | 2026-08-13 | 达上限/中断也把 Thinking 和 Tool 轨迹写入 Session |
 | `Muse-0.3.4-debug.apk` | 0.3.4 | 2026-08-13 | 观察 Tool 不误杀；点击后自带新树；修好 open_app / ui_dump / 假成功点击 |
 | `Muse-0.4.0-debug.apk` | 0.4.0 | 2026-08-14 | Cream UI；聊天/任务模式；+ 选 Tool；Markdown；复制/删对话；导入 memory |
+| `Muse-0.4.1-debug.apk` | 0.4.1 | 2026-08-14 | 端侧 OCR（ML Kit 中文）；ocr_screen 辅助判断自绘/空树界面 |

@@ -28,6 +28,13 @@ class MuseShellService : IMuseShell.Stub {
         return "exit=$finished\n${body.take(8_000)}"
     }
 
+    override fun screenshot(): ByteArray {
+        val process = Runtime.getRuntime().exec(arrayOf("screencap", "-p"))
+        val bytes = process.inputStream.readBytes()
+        process.waitFor()
+        return bytes
+    }
+
     companion object {
         const val DUMP_PATH = "/data/local/tmp/muse_ui.xml"
 

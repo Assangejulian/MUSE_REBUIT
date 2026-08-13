@@ -28,6 +28,8 @@ class CotOverlay(context: Context) {
 
     fun canDraw(): Boolean = Settings.canDrawOverlays(app)
 
+    fun isShowing(): Boolean = root != null
+
     fun show() {
         main.post {
             if (!canDraw() || root != null) return@post

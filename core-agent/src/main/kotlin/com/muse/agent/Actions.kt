@@ -18,4 +18,5 @@ interface ActionPort {
     suspend fun clickText(text: String): String
     suspend fun scroll(direction: String): String
     suspend fun waitMs(ms: Int): String
+    suspend fun ocrScreen(): String
 }

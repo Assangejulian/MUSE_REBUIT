@@ -77,6 +77,12 @@ class ShizukuGateway(context: Context) {
         }
     }
 
+    suspend fun screenshot(): ByteArray? = withContext(Dispatchers.IO) {
+        if (!isReady()) return@withContext null
+        val shell = mutex.withLock { ensureBound() } ?: return@withContext null
+        runCatching { withTimeout(12_000) { shell.screenshot() } }.getOrNull()
+    }
+
     suspend fun exec(command: String): String = withContext(Dispatchers.IO) {
         val deny = com.muse.agent.ShellPolicy.denyReason(command)
         if (deny != null) return@withContext "错误：$deny"

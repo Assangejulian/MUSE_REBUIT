@@ -3,10 +3,13 @@ package com.muse.app
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Path
 import android.graphics.Rect
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.view.Display
 import android.view.accessibility.AccessibilityNodeInfo
 import com.muse.agent.UiNode
 import com.muse.agent.UiSafety
@@ -271,6 +274,32 @@ class MuseAccessibilityService : AccessibilityService() {
             if (!ok) done.complete(false)
         }
         return if (withTimeout(3_000) { done.await() }) "已手势 ($x1,$y1)->($x2,$y2)" else "错误：手势失败"
+    }
+
+    suspend fun captureBitmap(): Bitmap? {
+        if (Build.VERSION.SDK_INT < 30) return null
+        val done = CompletableDeferred<Bitmap?>()
+        onMain {
+            takeScreenshot(
+                Display.DEFAULT_DISPLAY,
+                { runnable -> runnable.run() },
+                object : TakeScreenshotCallback {
+                    override fun onSuccess(screenshot: ScreenshotResult) {
+                        val buffer = screenshot.hardwareBuffer
+                        val wrapped = Bitmap.wrapHardwareBuffer(buffer, screenshot.colorSpace)
+                        val copy = wrapped?.copy(Bitmap.Config.ARGB_8888, false)
+                        wrapped?.recycle()
+                        buffer.close()
+                        done.complete(copy)
+                    }
+
+                    override fun onFailure(errorCode: Int) {
+                        done.complete(null)
+                    }
+                },
+            )
+        }
+        return runCatching { withTimeout(4_000) { done.await() } }.getOrNull()
     }
 
     private suspend fun <T> onMain(block: () -> T): T = withContext(Dispatchers.Main) { block() }

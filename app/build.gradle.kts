@@ -12,10 +12,13 @@ android {
         applicationId = "com.muse.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 12
-        versionName = "0.4.0"
+        versionCode = 13
+        versionName = "0.4.1"
         buildConfigField("String", "GITHUB_OWNER", "\"Assangejulian\"")
         buildConfigField("String", "GITHUB_REPO", "\"MUSE_REBUIT\"")
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
     }
     buildTypes {
         release {
@@ -67,6 +70,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.shizuku.api)
     implementation(libs.shizuku.provider)
+    implementation(libs.mlkit.text.chinese)
     debugImplementation(libs.androidx.compose.ui.tooling)
     testImplementation(libs.junit)
 }
