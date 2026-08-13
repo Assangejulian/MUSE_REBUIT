@@ -11,6 +11,14 @@ const val MAX_TOOL_ROUNDS = 100
 const val TOOL_TIMEOUT_MS = 20_000L
 const val TOOL_OUTPUT_LIMIT = 8 * 1024
 
+val OBSERVE_TOOLS = setOf(
+    "ui_snapshot",
+    "find_nodes",
+    "ui_status",
+    "shizuku_status",
+    "memory_read",
+)
+
 interface MemoryPort {
     suspend fun read(): String
     suspend fun write(op: String, text: String): String
@@ -106,13 +114,13 @@ fun museToolDefinitions(): List<ToolDefinition> = listOf(
     ),
     toolSchema(
         name = "click_node",
-        description = "Click a node by id from the last ui_snapshot (e.g. n3). Rematches on a fresh tree. Prefer this over raw tap.",
+        description = "Click a node by id from the last snapshot (e.g. n3). Rematches on a fresh tree. The result already includes a new snapshot.",
         properties = buildProps("id" to "Node id like n3"),
         required = listOf("id"),
     ),
     toolSchema(
         name = "click_text",
-        description = "Find a visible node containing this text and click it.",
+        description = "Find a visible node containing this text and click it. The result already includes a new snapshot.",
         properties = buildProps("text" to "Visible text or content-desc"),
         required = listOf("text"),
     ),
@@ -207,7 +215,7 @@ Device control:
 1. ui_status if unsure. Prefer Accessibility over Shizuku tap.
 2. open_app to leave Muse
 3. ui_snapshot to see nodes (n1, n2…). Do not invent ids.
-4. click_node or click_text. After each click/scroll/type, ui_snapshot again.
+4. click_node or click_text. The Tool result already includes a fresh snapshot — use those new ids. Do not immediately ui_snapshot again unless the tree looks stale.
 5. type_text into the focused field. scroll up/down. keyevent BACK/HOME.
 6. tap/swipe/ui_dump only if snapshot has no useful nodes (custom-drawn UI).
 Use note_save when the user asks to keep a note.

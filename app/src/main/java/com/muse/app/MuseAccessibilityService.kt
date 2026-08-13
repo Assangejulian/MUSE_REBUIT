@@ -14,8 +14,10 @@ import com.muse.agent.UiSnapshot
 import com.muse.agent.findInSnapshot
 import com.muse.agent.formatSnapshot
 import com.muse.agent.rematchNode
+import com.muse.agent.sameScreen
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
@@ -47,9 +49,9 @@ class MuseAccessibilityService : AccessibilityService() {
     suspend fun snapshotText(): String = formatSnapshot(snapshot())
 
     suspend fun find(query: String): String {
-        val snap = last ?: snapshot()
+        val snap = snapshot()
         val hits = findInSnapshot(snap, query)
-        if (hits.isEmpty()) return "没有匹配「$query」的节点。先 ui_snapshot。"
+        if (hits.isEmpty()) return "没有匹配「$query」的节点。"
         return formatSnapshot(snap.copy(nodes = hits), limit = 20)
     }
 
@@ -74,27 +76,30 @@ class MuseAccessibilityService : AccessibilityService() {
         return clickNode(target)
     }
 
-    suspend fun typeIntoFocused(text: String): String = onMain {
-        val root = rootInActiveWindow ?: return@onMain "错误：没有窗口。"
-        val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
-            ?: root.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
-        if (focused != null) {
-            val args = Bundle().apply {
-                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+    suspend fun typeIntoFocused(text: String): String {
+        val status = onMain {
+            val root = rootInActiveWindow ?: return@onMain "错误：没有窗口。"
+            val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+                ?: root.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
+            if (focused != null) {
+                val args = Bundle().apply {
+                    putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+                }
+                val ok = focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+                return@onMain if (ok) "已输入 ${text.take(20)}" else "错误：该输入框不支持 SET_TEXT。"
             }
-            val ok = focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
-            return@onMain if (ok) "已输入 ${text.take(20)}" else "错误：该输入框不支持 SET_TEXT。"
+            "错误：没有焦点输入框。先 click_node 点中输入框。"
         }
-        "错误：没有焦点输入框。先 click_node 点中输入框。"
+        return withTree(status)
     }
 
-    suspend fun goBack(): String = onMain {
-        if (performGlobalAction(GLOBAL_ACTION_BACK)) "已 BACK" else "错误：BACK 失败"
-    }
+    suspend fun goBack(): String = withTree(
+        onMain { if (performGlobalAction(GLOBAL_ACTION_BACK)) "已 BACK" else "错误：BACK 失败" },
+    )
 
-    suspend fun goHome(): String = onMain {
-        if (performGlobalAction(GLOBAL_ACTION_HOME)) "已 HOME" else "错误：HOME 失败"
-    }
+    suspend fun goHome(): String = withTree(
+        onMain { if (performGlobalAction(GLOBAL_ACTION_HOME)) "已 HOME" else "错误：HOME 失败" },
+    )
 
     suspend fun scroll(direction: String): String {
         val metrics = resources.displayMetrics
@@ -106,35 +111,67 @@ class MuseAccessibilityService : AccessibilityService() {
             "right" -> listOf(w * 0.8f, h / 2, w * 0.25f, h / 2)
             else -> listOf(w / 2, h * 0.75f, w / 2, h * 0.35f)
         }
-        return gesture(x1, y1, x2, y2, 280)
+        return withTree(gesture(x1, y1, x2, y2, 280))
     }
 
-    suspend fun tap(x: Int, y: Int): String = gesture(x.toFloat(), y.toFloat(), x.toFloat(), y.toFloat(), 60)
+    suspend fun tap(x: Int, y: Int): String =
+        withTree(gesture(x.toFloat(), y.toFloat(), x.toFloat(), y.toFloat(), 60))
 
     suspend fun swipe(x1: Int, y1: Int, x2: Int, y2: Int): String =
-        gesture(x1.toFloat(), y1.toFloat(), x2.toFloat(), y2.toFloat(), 280)
+        withTree(gesture(x1.toFloat(), y1.toFloat(), x2.toFloat(), y2.toFloat(), 280))
 
     private suspend fun clickNode(node: UiNode): String {
-        val clicked = onMain {
-            val live = findLive(node)
-            when {
-                live == null -> false
-                live.isCheckable -> live.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                live.isClickable -> live.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                else -> {
-                    var p = live.parent
-                    var ok = false
-                    while (p != null && !ok) {
-                        if (p.isClickable) ok = p.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                        p = p.parent
-                    }
-                    ok
-                }
+        val before = last ?: snapshot()
+        val resolved = onMain { resolveClick(node) }
+        val a11yOk = onMain {
+            val live = resolved.actionNode ?: return@onMain false
+            if (live.isCheckable || live.isClickable || live.isEditable) {
+                live.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            } else {
+                false
             }
         }
-        if (clicked) return "已点击 ${node.id}「${node.label()}」via a11y"
-        val tapped = gesture(node.cx.toFloat(), node.cy.toFloat(), node.cx.toFloat(), node.cy.toFloat(), 60)
-        return if (tapped.startsWith("错误")) tapped else "已点击 ${node.id}「${node.label()}」via gesture (${node.cx},${node.cy})"
+        if (a11yOk) {
+            delay(280)
+            val after = snapshot()
+            if (!sameScreen(before, after)) {
+                return "已点击 ${node.id}「${node.label()}」via a11y\n---\n${formatSnapshot(after)}"
+            }
+        }
+        val tapped = gesture(resolved.x.toFloat(), resolved.y.toFloat(), resolved.x.toFloat(), resolved.y.toFloat(), 60)
+        if (tapped.startsWith("错误") && !a11yOk) return tapped
+        delay(280)
+        val after = snapshot()
+        val how = if (tapped.startsWith("错误")) "a11y" else "gesture (${resolved.x},${resolved.y})"
+        return "已点击 ${node.id}「${node.label()}」via $how\n---\n${formatSnapshot(after)}"
+    }
+
+    private data class ResolvedClick(val actionNode: AccessibilityNodeInfo?, val x: Int, val y: Int)
+
+    private fun resolveClick(node: UiNode): ResolvedClick {
+        val live = findLive(node) ?: return ResolvedClick(null, node.cx, node.cy)
+        var action = live
+        if (!action.isClickable && !action.isCheckable && !action.isEditable) {
+            var parent = action.parent
+            while (parent != null) {
+                if (parent.isClickable || parent.isCheckable || parent.isEditable) {
+                    action = parent
+                    break
+                }
+                parent = parent.parent
+            }
+        }
+        val rect = Rect()
+        action.getBoundsInScreen(rect)
+        val x = if (rect.width() > 0) rect.centerX() else node.cx
+        val y = if (rect.height() > 0) rect.centerY() else node.cy
+        return ResolvedClick(action, x, y)
+    }
+
+    private suspend fun withTree(status: String): String {
+        if (status.startsWith("错误：")) return status
+        delay(280)
+        return status + "\n---\n" + snapshotText()
     }
 
     private fun findLive(target: UiNode): AccessibilityNodeInfo? {

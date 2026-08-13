@@ -91,6 +91,12 @@ fun findInSnapshot(snapshot: UiSnapshot, query: String): List<UiNode> {
     }
 }
 
+fun sameScreen(a: UiSnapshot, b: UiSnapshot): Boolean {
+    if (a.pkg != b.pkg) return false
+    if (a.title != b.title) return false
+    return a.nodes.take(12).map { it.label() } == b.nodes.take(12).map { it.label() }
+}
+
 fun rematchNode(old: UiNode, fresh: List<UiNode>): UiNode? {
     fresh.firstOrNull {
         it.text == old.text && it.desc == old.desc && it.viewId == old.viewId && it.label().isNotBlank()

@@ -32,6 +32,6 @@ class MuseShellService : IMuseShell.Stub {
         const val DUMP_PATH = "/data/local/tmp/muse_ui.xml"
 
         fun dumpCommand(): String =
-            "uiautomator dump $DUMP_PATH >/dev/null 2>&1; cat $DUMP_PATH"
+            "uiautomator dump $DUMP_PATH; cat $DUMP_PATH"
     }
 }

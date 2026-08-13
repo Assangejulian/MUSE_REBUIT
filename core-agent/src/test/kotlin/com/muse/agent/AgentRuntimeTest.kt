@@ -180,6 +180,45 @@ class AgentRuntimeTest {
     }
 
     @Test
+    fun observeToolsAreNotRepeatBlocked() = runTest {
+        val ports = FakePorts()
+        val llm = ScriptedLlm(
+            mutableListOf(
+                {
+                    ChatMessage(
+                        role = "assistant",
+                        toolCalls = listOf(ToolCall("s0", function = ToolFunctionCall("ui_snapshot", "{}"))),
+                    )
+                },
+                {
+                    ChatMessage(
+                        role = "assistant",
+                        toolCalls = listOf(ToolCall("s1", function = ToolFunctionCall("ui_snapshot", "{}"))),
+                    )
+                },
+                {
+                    ChatMessage(
+                        role = "assistant",
+                        toolCalls = listOf(ToolCall("s2", function = ToolFunctionCall("ui_snapshot", "{}"))),
+                    )
+                },
+                {
+                    ChatMessage(
+                        role = "assistant",
+                        toolCalls = listOf(ToolCall("s3", function = ToolFunctionCall("ui_snapshot", "{}"))),
+                    )
+                },
+                { ChatMessage(role = "assistant", content = "看到了") },
+            ),
+        )
+        val runtime = AgentRuntime(llm, ports, ports, ports, ports, ports, ports, maxRounds = 8)
+        val events = runtime.run(emptyList(), "看屏幕", config).toList()
+        val finished = events.filterIsInstance<AgentEvent.ToolFinished>()
+        assertTrue(finished.none { it.result.contains("3 次") })
+        assertEquals(4, finished.count { it.name == "ui_snapshot" })
+    }
+
+    @Test
     fun htmlToTextStripsTags() {
         val text = htmlToText("<html><head><style>p{}</style></head><body><h1>Hi</h1><p>A&nbsp;B</p></body></html>")
         assertEquals("Hi\n A B", text)
@@ -249,6 +288,21 @@ class AgentRuntimeTest {
         assertEquals(null, ShellPolicy.denyReason("dumpsys activity top"))
         assertEquals(null, ShellPolicy.denyReason("input tap 100 200"))
         assertEquals(null, ShellPolicy.denyReason("uiautomator dump /data/local/tmp/x.xml"))
+        assertEquals(
+            null,
+            ShellPolicy.denyReason("uiautomator dump /data/local/tmp/muse_ui.xml; cat /data/local/tmp/muse_ui.xml"),
+        )
+        assertTrue(ShellPolicy.denyReason("uiautomator dump /x >/dev/null 2>&1") != null)
+    }
+
+    @Test
+    fun sameScreenComparesPkgTitleAndLabels() {
+        val node = UiNode("n1", "热搜", "", "", "TextView", true, false, false, false, true, 1, 1, 0, 0, 2, 2)
+        val a = UiSnapshot("app.example", "Home", "a11y", listOf(node))
+        val b = a.copy()
+        val c = a.copy(title = "Search")
+        assertTrue(sameScreen(a, b))
+        assertTrue(!sameScreen(a, c))
     }
 
     @Test

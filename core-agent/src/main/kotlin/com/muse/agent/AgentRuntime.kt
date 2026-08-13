@@ -123,10 +123,14 @@ class AgentRuntime(
                 messages += assistant
                 persist(assistant)
                 for (call in calls) {
-                    val key = "${call.function.name}|${call.function.arguments}"
-                    val count = (repeats[key] ?: 0) + 1
-                    repeats[key] = count
-                    emit(AgentEvent.ToolStarted(call.function.name, call.function.arguments))
+                    val name = call.function.name
+                    val key = "$name|${call.function.arguments}"
+                    val count = if (name in OBSERVE_TOOLS) {
+                        0
+                    } else {
+                        ((repeats[key] ?: 0) + 1).also { repeats[key] = it }
+                    }
+                    emit(AgentEvent.ToolStarted(name, call.function.arguments))
                     val result = if (count >= 3) {
                         "同一个 Tool 用相同参数调用了 3 次。请停止重复，换策略或直接回答用户。"
                     } else {

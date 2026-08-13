@@ -41,16 +41,14 @@ class AndroidActions(
 
     override suspend fun openApp(name: String): String {
         val needle = name.trim()
+        if (needle.isEmpty()) return "错误：name 不能为空。"
         val pm = app.packageManager
-        val launch = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        val apps = pm.queryIntentActivities(launch, PackageManager.MATCH_DEFAULT_ONLY)
-        val matches = apps.map { info ->
-            val label = info.loadLabel(pm).toString()
-            val pkg = info.activityInfo.packageName
-            Triple(label, pkg, info)
-        }.filter { (label, pkg, _) ->
-            label.contains(needle, ignoreCase = true) || pkg.contains(needle, ignoreCase = true)
+        if (needle.contains('.')) {
+            pm.getLaunchIntentForPackage(needle)?.let {
+                return withFreshTree(launch(it, "已打开 $needle。"), 700)
+            }
         }
+        val matches = launcherMatches(pm, needle)
         if (matches.isEmpty()) {
             return "没有找到叫「$needle」的已安装 App。"
         }
@@ -63,7 +61,27 @@ class AndroidActions(
         } ?: matches.first()
         val intent = pm.getLaunchIntentForPackage(chosen.second)
             ?: return "错误：无法启动 ${chosen.first}。"
-        return launch(intent, "已打开 ${chosen.first}。")
+        return withFreshTree(launch(intent, "已打开 ${chosen.first}。"), 700)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun launcherMatches(pm: PackageManager, needle: String): List<Pair<String, String>> {
+        val launch = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val fromLauncher = pm.queryIntentActivities(launch, PackageManager.MATCH_ALL).map { info ->
+            info.loadLabel(pm).toString() to info.activityInfo.packageName
+        }
+        val fromInstalled = runCatching {
+            pm.getInstalledApplications(0).mapNotNull { info ->
+                val pkg = info.packageName
+                val label = pm.getApplicationLabel(info).toString()
+                if (pm.getLaunchIntentForPackage(pkg) == null) null else label to pkg
+            }
+        }.getOrDefault(emptyList())
+        return (fromLauncher + fromInstalled)
+            .distinctBy { it.second }
+            .filter { (label, pkg) ->
+                label.contains(needle, ignoreCase = true) || pkg.contains(needle, ignoreCase = true)
+            }
     }
 
     override suspend fun shizukuStatus(): String = shizuku.statusLine()
@@ -80,14 +98,14 @@ class AndroidActions(
 
     override suspend fun tap(x: Int, y: Int): String {
         a11y()?.let { return it.tap(x, y) }
-        return shizuku.exec("input tap $x $y").let { if (it.startsWith("错误：")) it else "已 tap ($x,$y)\n$it" }
+        val raw = shizuku.exec("input tap $x $y")
+        return withFreshTree(if (raw.startsWith("错误：")) raw else "已 tap ($x,$y)\n$raw")
     }
 
     override suspend fun swipe(x1: Int, y1: Int, x2: Int, y2: Int): String {
         a11y()?.let { return it.swipe(x1, y1, x2, y2) }
-        return shizuku.exec("input swipe $x1 $y1 $x2 $y2 300").let {
-            if (it.startsWith("错误：")) it else "已 swipe ($x1,$y1)->($x2,$y2)\n$it"
-        }
+        val raw = shizuku.exec("input swipe $x1 $y1 $x2 $y2 300")
+        return withFreshTree(if (raw.startsWith("错误：")) raw else "已 swipe ($x1,$y1)->($x2,$y2)\n$raw")
     }
 
     override suspend fun type(text: String): String {
@@ -97,7 +115,7 @@ class AndroidActions(
             if (!viaTree.startsWith("错误")) return viaTree
         }
         val ascii = text.all { it.code < 128 }
-        return if (ascii) {
+        val status = if (ascii) {
             val escaped = text.replace(" ", "%s").replace("'", "'\\''")
             shizuku.exec("input text '$escaped'")
         } else {
@@ -108,6 +126,7 @@ class AndroidActions(
                 if (it.startsWith("错误：")) it else "已粘贴中文/非 ASCII 文本。"
             }
         }
+        return withFreshTree(status)
     }
 
     override suspend fun key(name: String): String {
@@ -127,7 +146,7 @@ class AndroidActions(
             "PASTE" -> 279
             else -> name.toIntOrNull()
         } ?: return "错误：未知按键 $name。可用 BACK / HOME / ENTER / RECENTS / DELETE / PASTE。"
-        return shizuku.exec("input keyevent $code")
+        return withFreshTree(shizuku.exec("input keyevent $code"))
     }
 
     override suspend fun uiStatus(): String = buildString {
@@ -180,7 +199,14 @@ class AndroidActions(
 
     override suspend fun waitMs(ms: Int): String {
         delay(ms.toLong())
-        return "已等待 ${ms}ms"
+        return withFreshTree("已等待 ${ms}ms", 0)
+    }
+
+    private suspend fun withFreshTree(status: String, settleMs: Long = 280): String {
+        if (status.startsWith("错误：")) return status
+        if (settleMs > 0) delay(settleMs)
+        val tree = runCatching { uiSnapshot() }.getOrDefault("(snapshot failed)")
+        return "$status\n---\n$tree"
     }
 
     private fun a11y(): MuseAccessibilityService? = MuseAccessibilityService.instance
