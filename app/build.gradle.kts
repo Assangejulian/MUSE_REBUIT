@@ -12,8 +12,8 @@ android {
         applicationId = "com.muse.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11
-        versionName = "0.3.4"
+        versionCode = 12
+        versionName = "0.4.0"
         buildConfigField("String", "GITHUB_OWNER", "\"Assangejulian\"")
         buildConfigField("String", "GITHUB_REPO", "\"MUSE_REBUIT\"")
     }

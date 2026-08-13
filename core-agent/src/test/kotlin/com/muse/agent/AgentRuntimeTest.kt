@@ -240,6 +240,13 @@ class AgentRuntimeTest {
     }
 
     @Test
+    fun chatModeSendsNoTools() {
+        assertTrue(toolsForRun(emptyList()).isEmpty())
+        assertEquals(museToolDefinitions().size, toolsForRun(null).size)
+        assertEquals(listOf("web_search"), toolsForRun(listOf("web_search")).map { it.function.name })
+    }
+
+    @Test
     fun searchToolIsRegistered() {
         val names = museToolDefinitions().map { it.function.name }
         assertTrue(names.contains("web_search"))

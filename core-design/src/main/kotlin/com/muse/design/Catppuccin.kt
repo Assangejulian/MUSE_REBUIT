@@ -95,8 +95,40 @@ val Latte = CatppuccinPalette(
     crust = Color(0xFFDCE0E8),
 )
 
+val Cream = CatppuccinPalette(
+    name = "Cream",
+    dark = false,
+    rosewater = Color(0xFFE8C4B8),
+    flamingo = Color(0xFFD9A39A),
+    pink = Color(0xFFD4A0B0),
+    mauve = Color(0xFFC4785A),
+    red = Color(0xFFC45C4A),
+    maroon = Color(0xFFB56858),
+    peach = Color(0xFFD4A574),
+    yellow = Color(0xFFE2C07A),
+    green = Color(0xFF6B8F71),
+    teal = Color(0xFF6A9A8B),
+    sky = Color(0xFF7AA8B0),
+    sapphire = Color(0xFF6B8E9B),
+    blue = Color(0xFF6D7F9C),
+    lavender = Color(0xFFB08968),
+    text = Color(0xFF3C322A),
+    subtext1 = Color(0xFF5C5046),
+    subtext0 = Color(0xFF7A6B5D),
+    overlay2 = Color(0xFF948575),
+    overlay1 = Color(0xFFA89886),
+    overlay0 = Color(0xFFC4B5A4),
+    surface2 = Color(0xFFD9CBB8),
+    surface1 = Color(0xFFE4D5C2),
+    surface0 = Color(0xFFEFE4D4),
+    base = Color(0xFFFBFAF6),
+    mantle = Color(0xFFF3EBE0),
+    crust = Color(0xFFF6F0E6),
+)
+
 enum class MuseThemeMode {
     System,
+    Cream,
     Mocha,
     Latte,
 }

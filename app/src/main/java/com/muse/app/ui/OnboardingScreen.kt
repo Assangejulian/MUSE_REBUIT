@@ -48,6 +48,7 @@ fun OnboardingScreen(onContinue: (apiKey: String, model: String, baseUrl: String
         verticalArrangement = Arrangement.Center,
     ) {
         Text("Muse", color = palette.mauve, fontSize = 36.sp, fontWeight = FontWeight.SemiBold)
+        Text("暖色、慢慢来。", color = palette.subtext0, fontSize = 15.sp)
         Spacer(Modifier.height(8.dp))
         Text(
             "跑在 Android 上的个人 Agent。默认 Model 是 DeepSeek V4 Flash，需要时再切 Pro。",
@@ -73,7 +74,7 @@ fun OnboardingScreen(onContinue: (apiKey: String, model: String, baseUrl: String
                     label = { Text(label) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = palette.mauve,
-                        selectedLabelColor = palette.crust,
+                        selectedLabelColor = palette.base,
                         containerColor = palette.base,
                         labelColor = palette.text,
                     ),
@@ -105,7 +106,7 @@ fun OnboardingScreen(onContinue: (apiKey: String, model: String, baseUrl: String
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = palette.mauve,
-                contentColor = palette.crust,
+                contentColor = palette.base,
             ),
         ) {
             Text("开始使用", fontSize = 16.sp, fontWeight = FontWeight.Medium)

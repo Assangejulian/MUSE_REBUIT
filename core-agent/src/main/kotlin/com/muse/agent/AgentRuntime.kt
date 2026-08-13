@@ -25,6 +25,7 @@ data class AgentConfig(
     val reasoningEffort: String,
     val thinkingEnabled: Boolean,
     val maxTokens: Int,
+    val toolNames: List<String>? = null,
 )
 
 sealed class AgentEvent {
@@ -90,7 +91,7 @@ class AgentRuntime(
                 val request = ChatRequest(
                     model = config.model,
                     messages = messages,
-                    tools = museToolDefinitions(),
+                    tools = toolsForRun(config.toolNames),
                     maxTokens = config.maxTokens,
                     reasoningEffort = config.reasoningEffort,
                     thinkingEnabled = config.thinkingEnabled,

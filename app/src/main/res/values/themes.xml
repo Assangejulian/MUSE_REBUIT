@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.Muse" parent="android:Theme.Material.NoActionBar">
-        <item name="android:statusBarColor">#11111B</item>
-        <item name="android:navigationBarColor">#11111B</item>
-        <item name="android:windowBackground">#11111B</item>
+        <item name="android:statusBarColor">#F6F0E6</item>
+        <item name="android:navigationBarColor">#F6F0E6</item>
+        <item name="android:windowBackground">#F6F0E6</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 </resources>

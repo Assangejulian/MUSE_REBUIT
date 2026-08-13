@@ -36,6 +36,39 @@ interface HttpPort {
     suspend fun fetch(url: String): String
 }
 
+fun toolsForRun(toolNames: List<String>?): List<ToolDefinition> {
+    val all = museToolDefinitions()
+    if (toolNames == null) return all
+    if (toolNames.isEmpty()) return emptyList()
+    val allow = toolNames.toSet()
+    return all.filter { it.function.name in allow }
+}
+
+data class ToolChoice(
+    val name: String,
+    val label: String,
+)
+
+fun museToolChoices(): List<ToolChoice> = listOf(
+    ToolChoice("web_search", "网页搜索"),
+    ToolChoice("http_fetch", "打开网页正文"),
+    ToolChoice("open_url", "用浏览器打开"),
+    ToolChoice("open_app", "打开应用"),
+    ToolChoice("ui_snapshot", "看当前界面"),
+    ToolChoice("click_text", "点文字"),
+    ToolChoice("click_node", "点节点"),
+    ToolChoice("type_text", "输入文字"),
+    ToolChoice("scroll", "滑动"),
+    ToolChoice("device_status", "电量与时间"),
+    ToolChoice("memory_read", "读 memory"),
+    ToolChoice("memory_write", "写 memory"),
+    ToolChoice("note_save", "存笔记"),
+    ToolChoice("share_text", "系统分享"),
+    ToolChoice("shell", "Shizuku shell"),
+    ToolChoice("tap", "坐标点击"),
+    ToolChoice("ui_dump", "Shizuku dump"),
+)
+
 fun museToolDefinitions(): List<ToolDefinition> = listOf(
     toolSchema(
         name = "device_status",

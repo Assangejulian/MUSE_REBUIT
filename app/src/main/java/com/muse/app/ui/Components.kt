@@ -52,7 +52,7 @@ fun MuseField(
                 modifier = Modifier
                     .clip(RoundedCornerShape(MuseRadius))
                     .background(palette.base)
-                    .border(1.dp, palette.surface0, RoundedCornerShape(MuseRadius))
+                    .border(1.dp, palette.surface1, RoundedCornerShape(MuseRadius))
                     .heightIn(min = 48.dp, max = 140.dp)
                     .padding(horizontal = 14.dp, vertical = 12.dp),
             ) {

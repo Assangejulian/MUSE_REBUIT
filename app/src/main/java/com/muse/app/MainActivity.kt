@@ -4,9 +4,11 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -15,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -24,8 +27,26 @@ import com.muse.app.ui.SessionsScreen
 import com.muse.app.ui.SettingsScreen
 import com.muse.design.MuseTheme
 import com.muse.design.MuseThemeMode
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
 class MainActivity : ComponentActivity(), TaskHost {
     private val viewModel: ChatViewModel by viewModels()
+    private var memoryReplaceOnImport = false
+
+    private val memoryImport = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        lifecycleScope.launch {
+            val text = withContext(Dispatchers.IO) { readImportText(uri) }
+            if (text.isNullOrBlank()) {
+                Toast.makeText(this@MainActivity, "读不出这个文件，换一个 txt / md 试试。", Toast.LENGTH_SHORT).show()
+            } else {
+                viewModel.importMemory(text, memoryReplaceOnImport)
+                Toast.makeText(this@MainActivity, "已导入 memory.md", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,8 +56,9 @@ class MainActivity : ComponentActivity(), TaskHost {
             val state by viewModel.state.collectAsStateWithLifecycle()
             val themeMode = when (state.settings.theme) {
                 "latte" -> MuseThemeMode.Latte
+                "mocha" -> MuseThemeMode.Mocha
                 "system" -> MuseThemeMode.System
-                else -> MuseThemeMode.Mocha
+                else -> MuseThemeMode.Cream
             }
             MuseTheme(mode = themeMode) {
                 if (!state.hasKey) {
@@ -57,6 +79,12 @@ class MainActivity : ComponentActivity(), TaskHost {
                                 onOpenSettings = { nav.navigate("settings") },
                                 onToggleModel = viewModel::toggleModel,
                                 onOpenUpdate = { nav.navigate("settings") },
+                                onSetTaskMode = viewModel::setTaskMode,
+                                onToggleExtraTool = viewModel::toggleExtraTool,
+                                onImportMemory = {
+                                    memoryReplaceOnImport = false
+                                    memoryImport.launch(arrayOf("text/plain", "text/markdown", "text/*"))
+                                },
                             )
                         }
                         composable("sessions") {
@@ -68,6 +96,7 @@ class MainActivity : ComponentActivity(), TaskHost {
                                     viewModel.openSession(id)
                                     nav.popBackStack()
                                 },
+                                onDelete = viewModel::deleteSession,
                             )
                         }
                         composable("settings") {
@@ -83,6 +112,10 @@ class MainActivity : ComponentActivity(), TaskHost {
                                 onChange = viewModel::updateSettings,
                                 onSaveMemory = viewModel::saveMemory,
                                 onLoadMemory = { viewModel.readMemory() },
+                                onImportMemoryFile = {
+                                    memoryReplaceOnImport = false
+                                    memoryImport.launch(arrayOf("text/plain", "text/markdown", "text/*"))
+                                },
                                 onSaveBlocklist = viewModel::saveBlocklist,
                                 onLoadBlocklist = { viewModel.readBlocklist() },
                                 update = state.update,
@@ -129,5 +162,13 @@ class MainActivity : ComponentActivity(), TaskHost {
 
     override fun exitTaskMode() {
         // User can reopen from notification or recents.
+    }
+
+    private fun readImportText(uri: Uri): String? {
+        return runCatching {
+            contentResolver.openInputStream(uri)?.use { input ->
+                input.bufferedReader(Charsets.UTF_8).readText()
+            }
+        }.getOrNull()
     }
 }

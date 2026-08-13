@@ -18,8 +18,9 @@ data class MuseSettings(
     val reasoningEffort: String = "high",
     val thinkingEnabled: Boolean = true,
     val maxTokens: Int = DEFAULT_MAX_TOKENS,
-    val theme: String = "mocha",
+    val theme: String = "cream",
     val floatOnTask: Boolean = true,
+    val taskMode: Boolean = false,
 )
 
 class SettingsStore(context: Context) {
@@ -40,6 +41,7 @@ class SettingsStore(context: Context) {
             .putInt(KEY_MAX, next.maxTokens)
             .putString(KEY_THEME, next.theme)
             .putBoolean(KEY_FLOAT, next.floatOnTask)
+            .putBoolean(KEY_TASK_MODE, next.taskMode)
             .apply()
         _settings.value = next
     }
@@ -51,8 +53,9 @@ class SettingsStore(context: Context) {
         reasoningEffort = prefs.getString(KEY_EFFORT, "high") ?: "high",
         thinkingEnabled = prefs.getBoolean(KEY_THINKING, true),
         maxTokens = prefs.getInt(KEY_MAX, DEFAULT_MAX_TOKENS),
-        theme = prefs.getString(KEY_THEME, "mocha") ?: "mocha",
+        theme = prefs.getString(KEY_THEME, "cream") ?: "cream",
         floatOnTask = prefs.getBoolean(KEY_FLOAT, true),
+        taskMode = prefs.getBoolean(KEY_TASK_MODE, false),
     )
 
     private fun createPrefs(context: Context): SharedPreferences {
@@ -83,5 +86,6 @@ class SettingsStore(context: Context) {
         const val KEY_MAX = "max_tokens"
         const val KEY_THEME = "theme"
         const val KEY_FLOAT = "float_on_task"
+        const val KEY_TASK_MODE = "task_mode"
     }
 }

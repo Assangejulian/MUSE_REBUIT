@@ -54,6 +54,7 @@ data class ChatUiState(
     val updateHint: String? = null,
     val shizukuLine: String = "",
     val a11yLine: String = "",
+    val extraTools: Set<String> = emptySet(),
 )
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -190,6 +191,33 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setTaskMode(on: Boolean) {
+        graph.settings.update { it.copy(taskMode = on) }
+    }
+
+    fun toggleExtraTool(name: String) {
+        _state.update { state ->
+            val next = state.extraTools.toMutableSet()
+            if (!next.add(name)) next.remove(name)
+            state.copy(extraTools = next)
+        }
+    }
+
+    fun deleteSession(id: String) {
+        viewModelScope.launch {
+            graph.sessions.deleteSession(id)
+            if (sessionId == id) openSession(null)
+        }
+    }
+
+    fun importMemory(text: String, replace: Boolean) {
+        viewModelScope.launch {
+            val body = text.trim()
+            if (body.isEmpty()) return@launch
+            graph.memoryFiles.write(if (replace) "replace" else "append", body)
+        }
+    }
+
     fun send() {
         val text = _state.value.input.trim()
         val sid = sessionId ?: return
@@ -218,7 +246,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val history = graph.sessions.listMessages(sid).dropLastWhile { it.role == "user" && it.content == text }
             val settings = graph.settings.current()
             AgentService.start(getApplication())
-            val floating = settings.floatOnTask
+            val task = settings.taskMode
+            val floating = settings.floatOnTask && task
             if (floating && graph.overlay.canDraw()) {
                 graph.overlay.show()
                 graph.overlay.update("开始任务…", "Thinking")
@@ -235,6 +264,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         reasoningEffort = settings.reasoningEffort,
                         thinkingEnabled = settings.thinkingEnabled,
                         maxTokens = settings.maxTokens,
+                        toolNames = if (task) null else _state.value.extraTools.toList(),
                     ),
                 ).collect { event ->
                     when (event) {

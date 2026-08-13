@@ -54,6 +54,7 @@ fun SettingsScreen(
     onChange: ((MuseSettings) -> MuseSettings) -> Unit,
     onSaveMemory: (String) -> Unit,
     onLoadMemory: suspend () -> String,
+    onImportMemoryFile: () -> Unit = {},
     onSaveBlocklist: (String) -> Unit = {},
     onLoadBlocklist: suspend () -> String = { "" },
     update: UpdateState,
@@ -119,7 +120,7 @@ fun SettingsScreen(
                 Button(
                     onClick = onCheckUpdate,
                     enabled = update !is UpdateState.Checking && update !is UpdateState.Downloading,
-                    colors = ButtonDefaults.buttonColors(containerColor = palette.mauve, contentColor = palette.crust),
+                    colors = ButtonDefaults.buttonColors(containerColor = palette.mauve, contentColor = palette.base),
                     shape = RoundedCornerShape(14.dp),
                 ) { Text("检查更新") }
                 when (update) {
@@ -154,7 +155,12 @@ fun SettingsScreen(
             Spacer(Modifier.height(16.dp))
             SectionLabel("主题")
             ChipRow(
-                options = listOf("system" to "跟随系统", "mocha" to "Mocha", "latte" to "Latte"),
+                options = listOf(
+                    "cream" to "Cream",
+                    "system" to "跟随系统",
+                    "mocha" to "Mocha",
+                    "latte" to "Latte",
+                ),
                 selected = settings.theme,
                 onSelect = { value -> onChange { it.copy(theme = value) } },
             )
@@ -175,7 +181,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(8.dp))
                 Button(
                     onClick = onRequestOverlay,
-                    colors = ButtonDefaults.buttonColors(containerColor = palette.lavender, contentColor = palette.crust),
+                    colors = ButtonDefaults.buttonColors(containerColor = palette.lavender, contentColor = palette.base),
                     shape = RoundedCornerShape(14.dp),
                 ) { Text("去开启悬浮窗权限") }
             }
@@ -198,7 +204,7 @@ fun SettingsScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = { shizukuHint = onRequestShizuku() },
-                    colors = ButtonDefaults.buttonColors(containerColor = palette.mauve, contentColor = palette.crust),
+                    colors = ButtonDefaults.buttonColors(containerColor = palette.mauve, contentColor = palette.base),
                     shape = RoundedCornerShape(14.dp),
                 ) { Text("连接 / 授权") }
                 Button(
@@ -254,11 +260,18 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth().height(160.dp),
             )
             Spacer(Modifier.height(8.dp))
-            Button(
-                onClick = { onSaveMemory(memory) },
-                colors = ButtonDefaults.buttonColors(containerColor = palette.lavender, contentColor = palette.crust),
-                shape = RoundedCornerShape(14.dp),
-            ) { Text("保存 memory") }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { onSaveMemory(memory) },
+                    colors = ButtonDefaults.buttonColors(containerColor = palette.lavender, contentColor = palette.base),
+                    shape = RoundedCornerShape(14.dp),
+                ) { Text("保存 memory") }
+                Button(
+                    onClick = onImportMemoryFile,
+                    colors = ButtonDefaults.buttonColors(containerColor = palette.surface0, contentColor = palette.text),
+                    shape = RoundedCornerShape(14.dp),
+                ) { Text("从文件导入") }
+            }
             Spacer(Modifier.height(16.dp))
             SectionLabel("blocklist.txt")
             MuseField(
@@ -338,7 +351,7 @@ private fun ChipRow(
                 label = { Text(label) },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = palette.mauve,
-                    selectedLabelColor = palette.crust,
+                    selectedLabelColor = palette.base,
                     containerColor = palette.base,
                     labelColor = palette.text,
                 ),

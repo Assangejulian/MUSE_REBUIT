@@ -10,20 +10,21 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-val LocalPalette = staticCompositionLocalOf { Mocha }
+val LocalPalette = staticCompositionLocalOf { Cream }
 
-val MuseRadius = 16.dp
+val MuseRadius = 20.dp
 
 @Composable
 fun MuseTheme(
-    mode: MuseThemeMode = MuseThemeMode.Mocha,
+    mode: MuseThemeMode = MuseThemeMode.Cream,
     content: @Composable () -> Unit,
 ) {
     val darkSystem = isSystemInDarkTheme()
     val palette = when (mode) {
+        MuseThemeMode.Cream -> Cream
         MuseThemeMode.Mocha -> Mocha
         MuseThemeMode.Latte -> Latte
-        MuseThemeMode.System -> if (darkSystem) Mocha else Latte
+        MuseThemeMode.System -> if (darkSystem) Mocha else Cream
     }
     val scheme = if (palette.dark) {
         darkColorScheme(
