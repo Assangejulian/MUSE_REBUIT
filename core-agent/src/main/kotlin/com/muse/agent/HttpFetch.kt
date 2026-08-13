@@ -45,26 +45,32 @@ class OkHttpFetcher(
     private val http: OkHttpClient = OkHttpClient.Builder()
         .followRedirects(false)
         .followSslRedirects(false)
-        .connectTimeout(8, TimeUnit.SECONDS)
-        .readTimeout(8, TimeUnit.SECONDS)
+        .connectTimeout(12, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
         .build(),
     private val maxBytes: Int = 64 * 1024,
 ) : HttpPort {
     override suspend fun fetch(url: String): String {
+        if (isSearchResultsPage(url)) {
+            return "错误：不要抓搜索结果页。请改用 web_search。"
+        }
         var current = url
-        repeat(3) {
+        repeat(4) {
             UrlGuard.validate(current)
             val response = http.newCall(
                 Request.Builder()
                     .url(current)
-                    .header("User-Agent", "Muse/0.1.0")
+                    .header("User-Agent", BROWSER_UA)
+                    .header("Accept", "text/html,application/json;q=0.9,*/*;q=0.8")
+                    .header("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
                     .get()
                     .build(),
             ).execute()
             response.use { resp ->
                 val code = resp.code
                 if (code in 300..399) {
-                    current = resp.header("Location") ?: throw UrlBlocked("重定向没有 Location。")
+                    val location = resp.header("Location") ?: throw UrlBlocked("重定向没有 Location。")
+                    current = URI(current).resolve(location).toString()
                     return@repeat
                 }
                 if (!resp.isSuccessful) {

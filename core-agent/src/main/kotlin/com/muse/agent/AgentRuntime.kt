@@ -38,6 +38,8 @@ class AgentRuntime(
     private val notes: NotePort,
     private val device: DevicePort,
     private val http: HttpPort,
+    private val search: SearchPort,
+    private val actions: ActionPort,
     private val maxRounds: Int = MAX_TOOL_ROUNDS,
 ) {
     fun run(
@@ -154,9 +156,25 @@ class AgentRuntime(
                         if (text.isBlank()) "错误：text 不能为空。" else memory.write(op, text)
                     }
                     "note_save" -> notes.save(args.string("title"), args.string("body"))
+                    "web_search" -> {
+                        val query = args.string("query")
+                        if (query.isBlank()) "错误：query 不能为空。" else search.search(query)
+                    }
                     "http_fetch" -> {
                         val url = args.string("url")
                         if (url.isBlank()) "错误：url 不能为空。" else http.fetch(url)
+                    }
+                    "open_url" -> {
+                        val url = args.string("url")
+                        if (url.isBlank()) "错误：url 不能为空。" else actions.openUrl(url)
+                    }
+                    "share_text" -> {
+                        val text = args.string("text")
+                        if (text.isBlank()) "错误：text 不能为空。" else actions.shareText(text)
+                    }
+                    "open_app" -> {
+                        val name = args.string("name")
+                        if (name.isBlank()) "错误：name 不能为空。" else actions.openApp(name)
                     }
                     "finish" -> "任务已结束：${args.string("summary")}"
                     else -> "错误：未知 Tool ${call.function.name}"

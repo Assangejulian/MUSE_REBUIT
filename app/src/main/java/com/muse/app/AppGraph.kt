@@ -10,6 +10,7 @@ import com.muse.agent.HttpPort
 import com.muse.agent.MemoryPort
 import com.muse.agent.NotePort
 import com.muse.agent.OkHttpFetcher
+import com.muse.agent.WebSearcher
 import com.muse.llm.DeepSeekClient
 import com.muse.memory.MemoryFileStore
 import com.muse.memory.MuseDatabase
@@ -30,6 +31,8 @@ class AppGraph(context: Context) {
     val notes = NoteStore(db)
     val llm = DeepSeekClient(allowLoopback = false)
     val http: HttpPort = OkHttpFetcher()
+    val search = WebSearcher()
+    val actions = AndroidActions(app)
     val memoryPort = object : MemoryPort {
         override suspend fun read(): String = memoryFiles.read()
         override suspend fun write(op: String, text: String): String = memoryFiles.write(op, text)
@@ -44,6 +47,8 @@ class AppGraph(context: Context) {
         notes = notePort,
         device = devicePort,
         http = http,
+        search = search,
+        actions = actions,
     )
     val updates = UpdateManager(app)
 }

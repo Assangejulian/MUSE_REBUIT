@@ -8,3 +8,4 @@
 |---|---|---|---|
 | `Muse-0.1.0-debug.apk` | 0.1.0 | 2026-08-13 | 初版：Chat、Thinking、6 个 Tool、memory.md |
 | `Muse-0.1.1-debug.apk` | 0.1.1 | 2026-08-13 | 修复 tools[].type 导致的 400；GitHub Release 更新检测/下载/安装 |
+| `Muse-0.1.2-debug.apk` | 0.1.2 | 2026-08-13 | web_search；open_url / share_text / open_app |

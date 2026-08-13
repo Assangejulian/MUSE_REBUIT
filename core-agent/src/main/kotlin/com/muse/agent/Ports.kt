@@ -8,7 +8,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 const val MAX_TOOL_ROUNDS = 8
-const val TOOL_TIMEOUT_MS = 8_000L
+const val TOOL_TIMEOUT_MS = 20_000L
 const val TOOL_OUTPUT_LIMIT = 8 * 1024
 
 interface MemoryPort {
@@ -61,10 +61,34 @@ fun museToolDefinitions(): List<ToolDefinition> = listOf(
         required = listOf("title", "body"),
     ),
     toolSchema(
+        name = "web_search",
+        description = "Search the public web and return titles, URLs, and snippets. Use this instead of fetching Google/Baidu/Bing result pages.",
+        properties = buildProps("query" to "Search query in the user's language"),
+        required = listOf("query"),
+    ),
+    toolSchema(
         name = "http_fetch",
-        description = "HTTP GET a public https URL and return plain text. Do not use for localhost or private networks.",
+        description = "HTTP GET a specific public https page and return plain text. Never use this on search engine result pages.",
+        properties = buildProps("url" to "Public https URL of one article or page"),
+        required = listOf("url"),
+    ),
+    toolSchema(
+        name = "open_url",
+        description = "Open a public https URL in the phone browser. Use after the user asks to open a link.",
         properties = buildProps("url" to "Public https URL"),
         required = listOf("url"),
+    ),
+    toolSchema(
+        name = "share_text",
+        description = "Open the Android share sheet with text so the user can send it to another app.",
+        properties = buildProps("text" to "Text to share"),
+        required = listOf("text"),
+    ),
+    toolSchema(
+        name = "open_app",
+        description = "Launch an installed app by its display name or package name. Does not tap inside the app.",
+        properties = buildProps("name" to "App label or package, e.g. 微信 or com.tencent.mm"),
+        required = listOf("name"),
     ),
     toolSchema(
         name = "finish",
@@ -90,7 +114,11 @@ Constraints:
 
 When the user states a lasting preference, call memory_write.
 Use device_status for time, battery, timezone, or network.
-Use http_fetch only for public https URLs the user asked about.
+Use web_search for current facts, news, prices, or anything you do not know.
+After web_search, use http_fetch on one promising URL if you need the page body.
+Never http_fetch Google/Baidu/Bing/DuckDuckGo result pages.
+Use open_url to open a link in the browser, share_text to share, open_app to launch an installed app.
+You cannot tap inside other apps.
 Use note_save when the user asks to keep a note.
 Call finish when a multi-step task is complete.
 """

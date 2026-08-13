@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -33,7 +34,7 @@ class ScriptedLlm(
     }
 }
 
-class FakePorts : MemoryPort, NotePort, DevicePort, HttpPort {
+class FakePorts : MemoryPort, NotePort, DevicePort, HttpPort, SearchPort, ActionPort {
     var memory = ""
     override suspend fun read(): String = memory
     override suspend fun write(op: String, text: String): String {
@@ -43,6 +44,10 @@ class FakePorts : MemoryPort, NotePort, DevicePort, HttpPort {
     override suspend fun save(title: String, body: String): String = "saved $title"
     override suspend fun status(): String = """{"battery":80}"""
     override suspend fun fetch(url: String): String = "fetched $url"
+    override suspend fun search(query: String): String = "search:$query"
+    override suspend fun openUrl(url: String): String = "open:$url"
+    override suspend fun shareText(text: String): String = "share:$text"
+    override suspend fun openApp(name: String): String = "app:$name"
 }
 
 class AgentRuntimeTest {
@@ -78,7 +83,7 @@ class AgentRuntimeTest {
                 },
             ),
         )
-        val runtime = AgentRuntime(llm, ports, ports, ports, ports)
+        val runtime = AgentRuntime(llm, ports, ports, ports, ports, ports, ports)
         val events = runtime.run(emptyList(), "电量多少", config).toList()
         assertTrue(events.any { it is AgentEvent.ToolStarted && it.name == "device_status" })
         val done = events.last() as AgentEvent.Completed
@@ -101,7 +106,7 @@ class AgentRuntimeTest {
                 }
             },
         )
-        val runtime = AgentRuntime(llm, ports, ports, ports, ports)
+        val runtime = AgentRuntime(llm, ports, ports, ports, ports, ports, ports)
         val events = runtime.run(emptyList(), "电量", config).toList()
         val finished = events.filterIsInstance<AgentEvent.ToolFinished>()
         assertTrue(finished.any { it.result.contains("3 次") })
@@ -111,6 +116,35 @@ class AgentRuntimeTest {
     fun htmlToTextStripsTags() {
         val text = htmlToText("<html><head><style>p{}</style></head><body><h1>Hi</h1><p>A&nbsp;B</p></body></html>")
         assertEquals("Hi\n A B", text)
+    }
+
+    @Test
+    fun parsesDuckDuckGoResults() {
+        val html = """
+            <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdeepseek.com">DeepSeek</a>
+            <a class="result__snippet" href="x">Official V4 Pro is out</a>
+            <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Farxiv.org%2Fabs%2F1">Paper</a>
+            <a class="result__snippet" href="x">Million-token context</a>
+        """.trimIndent()
+        val hits = parseDuckDuckGoHtml(html, 5)
+        assertEquals(2, hits.size)
+        assertEquals("https://deepseek.com", hits[0].url)
+        assertEquals("DeepSeek", hits[0].title)
+        assertTrue(hits[0].snippet.contains("V4"))
+    }
+
+    @Test
+    fun searchToolIsRegistered() {
+        val names = museToolDefinitions().map { it.function.name }
+        assertTrue(names.contains("web_search"))
+        assertTrue(names.contains("open_app"))
+    }
+
+    @Test
+    fun blocksSearchResultPages() {
+        assertTrue(isSearchResultsPage("https://www.google.com/search?q=muse"))
+        assertTrue(isSearchResultsPage("https://www.baidu.com/s?wd=muse"))
+        assertFalse(isSearchResultsPage("https://deepseek.com/blog"))
     }
 
     @Test
