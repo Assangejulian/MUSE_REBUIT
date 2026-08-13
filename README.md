@@ -26,7 +26,7 @@ $env:ANDROID_HOME = "C:\Users\Lenovo\AppData\Local\Android\Sdk"
 
 打出来的包会自动拷到 `dist/Muse-<version>-debug.apk`。当前：`dist/Muse-0.2.0-debug.apk`。
 
-设备控制需要另装 [Shizuku](https://shizuku.rikka.app/)，用无线调试启动后在 Muse 设置里授权。任务运行时（需悬浮窗权限）主界面会收成顶栏浮窗，只显示中文 Thinking。
+设备控制：设置里打开 **Muse 无障碍**（点节点），再连 **Shizuku**（启动/shell 兜底）。任务运行时（需悬浮窗权限）主界面收成顶栏浮窗，直播中文 Thinking。
 
 更新从 GitHub Release 拉取：`Assangejulian/MUSE_REBUIT`。需要在仓库发一个带 APK 的 Release（tag 如 `v0.1.1`）。
 

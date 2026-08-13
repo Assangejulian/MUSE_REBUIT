@@ -91,6 +91,7 @@ class MainActivity : ComponentActivity(), TaskHost {
                                 onInstallUpdate = { viewModel.installUpdate(context) },
                                 updateHint = state.updateHint,
                                 shizukuLine = state.shizukuLine,
+                                a11yLine = state.a11yLine,
                                 overlayReady = viewModel.overlayReady(),
                                 onRequestShizuku = { viewModel.requestShizuku() },
                                 onRefreshShizuku = viewModel::refreshShizuku,
@@ -101,6 +102,9 @@ class MainActivity : ComponentActivity(), TaskHost {
                                             Uri.parse("package:$packageName"),
                                         ),
                                     )
+                                },
+                                onRequestA11y = {
+                                    startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                                 },
                             )
                         }

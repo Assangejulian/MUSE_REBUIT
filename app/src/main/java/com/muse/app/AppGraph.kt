@@ -86,6 +86,10 @@ class AndroidDeviceStatus(
             append("network=").append(network)
             append('\n')
             append(shizuku.statusLine())
+            append('\n')
+            append("accessibility_enabled=").append(MuseAccessibilityService.enabled(context))
+            append('\n')
+            append("accessibility_live=").append(MuseAccessibilityService.instance != null)
         }
     }
 }

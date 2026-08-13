@@ -61,10 +61,12 @@ fun SettingsScreen(
     onInstallUpdate: () -> Unit,
     updateHint: String? = null,
     shizukuLine: String = "",
+    a11yLine: String = "",
     overlayReady: Boolean = false,
     onRequestShizuku: () -> String = { "" },
     onRefreshShizuku: () -> Unit = {},
     onRequestOverlay: () -> Unit = {},
+    onRequestA11y: () -> Unit = {},
 ) {
     val palette = LocalPalette.current
     var apiKey by remember(settings.apiKey) { mutableStateOf(settings.apiKey) }
@@ -172,6 +174,15 @@ fun SettingsScreen(
                     shape = RoundedCornerShape(14.dp),
                 ) { Text("去开启悬浮窗权限") }
             }
+            Spacer(Modifier.height(16.dp))
+            SectionLabel("Accessibility")
+            Text(a11yLine.ifBlank { "未检测" }, color = palette.subtext0, fontSize = 13.sp)
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = onRequestA11y,
+                colors = ButtonDefaults.buttonColors(containerColor = palette.mauve, contentColor = palette.crust),
+                shape = RoundedCornerShape(14.dp),
+            ) { Text("去打开无障碍（点节点用这个）") }
             Spacer(Modifier.height(16.dp))
             SectionLabel("Shizuku")
             Text(shizukuLine.ifBlank { "未检测" }, color = palette.subtext0, fontSize = 13.sp)

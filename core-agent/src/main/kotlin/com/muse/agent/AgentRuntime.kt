@@ -181,6 +181,22 @@ class AgentRuntime(
                         val name = args.string("name")
                         if (name.isBlank()) "错误：name 不能为空。" else actions.openApp(name)
                     }
+                    "ui_status" -> actions.uiStatus()
+                    "ui_snapshot" -> actions.uiSnapshot()
+                    "find_nodes" -> {
+                        val query = args.string("query")
+                        if (query.isBlank()) "错误：query 不能为空。" else actions.findNodes(query)
+                    }
+                    "click_node" -> {
+                        val id = args.string("id")
+                        if (id.isBlank()) "错误：id 不能为空。" else actions.clickNode(id)
+                    }
+                    "click_text" -> {
+                        val text = args.string("text")
+                        if (text.isBlank()) "错误：text 不能为空。" else actions.clickText(text)
+                    }
+                    "scroll" -> actions.scroll(args.string("direction").ifBlank { "down" })
+                    "wait" -> actions.waitMs((args.int("ms") ?: 800).coerceIn(200, 4000))
                     "shizuku_status" -> actions.shizukuStatus()
                     "ui_dump" -> actions.uiDump()
                     "tap" -> {

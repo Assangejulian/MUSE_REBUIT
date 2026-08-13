@@ -55,6 +55,13 @@ class FakePorts : MemoryPort, NotePort, DevicePort, HttpPort, SearchPort, Action
     override suspend fun swipe(x1: Int, y1: Int, x2: Int, y2: Int): String = "swipe"
     override suspend fun type(text: String): String = "type $text"
     override suspend fun key(name: String): String = "key $name"
+    override suspend fun uiStatus(): String = "a11y=fake"
+    override suspend fun uiSnapshot(): String = "* n1 签到 [按钮] (100,200)"
+    override suspend fun findNodes(query: String): String = "n1 $query"
+    override suspend fun clickNode(id: String): String = "click $id"
+    override suspend fun clickText(text: String): String = "clickText $text"
+    override suspend fun scroll(direction: String): String = "scroll $direction"
+    override suspend fun waitMs(ms: Int): String = "wait $ms"
 }
 
 class AgentRuntimeTest {
@@ -148,6 +155,36 @@ class AgentRuntimeTest {
         assertTrue(names.contains("ui_dump"))
         assertTrue(names.contains("tap"))
         assertTrue(names.contains("shell"))
+        assertTrue(names.contains("ui_snapshot"))
+        assertTrue(names.contains("click_node"))
+        assertTrue(names.contains("click_text"))
+    }
+
+    @Test
+    fun uiSafetyBlocksPayment() {
+        val snap = UiSnapshot(
+            pkg = "com.eg.android.AlipayGphone",
+            title = "确认支付",
+            source = "a11y",
+            nodes = listOf(
+                UiNode("n1", "立即付款", "", "", "Button", true, false, false, false, true, 1, 1, 0, 0, 2, 2),
+            ),
+        )
+        assertTrue(UiSafety.blockReason(snap)!!.contains("支付"))
+    }
+
+    @Test
+    fun formatSnapshotRanksClickable() {
+        val snap = UiSnapshot(
+            "pkg", "title", "a11y",
+            listOf(
+                UiNode("n1", "说明文字", "", "", "TextView", false, false, false, false, true, 1, 1, 0, 0, 2, 2),
+                UiNode("n2", "签到", "", "", "Button", true, false, false, false, true, 10, 10, 0, 0, 20, 20),
+            ),
+        )
+        val text = formatSnapshot(snap)
+        assertTrue(text.indexOf("n2") < text.indexOf("n1"))
+        assertTrue(findInSnapshot(snap, "签到").single().id == "n2")
     }
 
     @Test

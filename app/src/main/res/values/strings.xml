@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Muse</string>
+    <string name="a11y_description">Muse 用无障碍读取当前界面节点并代替点击。只在你发起的任务里使用，支付和验证码会本地拦截。</string>
 </resources>

@@ -12,3 +12,4 @@
 | `Muse-0.1.3-debug.apk` | 0.1.3 | 2026-08-13 | 修复 VPN 下 DNS 误杀；Bing/百度/DDG/Wiki 多源搜索 |
 | `Muse-0.1.4-debug.apk` | 0.1.4 | 2026-08-13 | 修复 Tool 在主线程联网（NetworkOnMainThreadException） |
 | `Muse-0.2.0-debug.apk` | 0.2.0 | 2026-08-13 | Shizuku 控制（tap/type/ui_dump/shell）+ 任务悬浮窗中文 CoT |
+| `Muse-0.3.0-debug.apk` | 0.3.0 | 2026-08-13 | 无障碍树 + click_node/click_text；Shizuku 兜底；支付界面拦截 |

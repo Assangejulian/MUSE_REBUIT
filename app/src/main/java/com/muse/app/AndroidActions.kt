@@ -10,6 +10,7 @@ import com.muse.agent.ActionPort
 import com.muse.agent.UrlBlocked
 import com.muse.agent.UrlGuard
 import com.muse.agent.compactUiDump
+import com.muse.agent.parseDumpBounds
 import kotlinx.coroutines.delay
 
 class AndroidActions(
@@ -77,16 +78,24 @@ class AndroidActions(
         return compactUiDump(xml)
     }
 
-    override suspend fun tap(x: Int, y: Int): String =
-        shizuku.exec("input tap $x $y").let { if (it.startsWith("错误：")) it else "已 tap ($x,$y)\n$it" }
+    override suspend fun tap(x: Int, y: Int): String {
+        a11y()?.let { return it.tap(x, y) }
+        return shizuku.exec("input tap $x $y").let { if (it.startsWith("错误：")) it else "已 tap ($x,$y)\n$it" }
+    }
 
-    override suspend fun swipe(x1: Int, y1: Int, x2: Int, y2: Int): String =
-        shizuku.exec("input swipe $x1 $y1 $x2 $y2 300").let {
+    override suspend fun swipe(x1: Int, y1: Int, x2: Int, y2: Int): String {
+        a11y()?.let { return it.swipe(x1, y1, x2, y2) }
+        return shizuku.exec("input swipe $x1 $y1 $x2 $y2 300").let {
             if (it.startsWith("错误：")) it else "已 swipe ($x1,$y1)->($x2,$y2)\n$it"
         }
+    }
 
     override suspend fun type(text: String): String {
         if (text.isBlank()) return "错误：text 为空。"
+        a11y()?.let {
+            val viaTree = it.typeIntoFocused(text)
+            if (!viaTree.startsWith("错误")) return viaTree
+        }
         val ascii = text.all { it.code < 128 }
         return if (ascii) {
             val escaped = text.replace(" ", "%s").replace("'", "'\\''")
@@ -102,7 +111,14 @@ class AndroidActions(
     }
 
     override suspend fun key(name: String): String {
-        val code = when (name.trim().uppercase()) {
+        val key = name.trim().uppercase()
+        a11y()?.let {
+            when (key) {
+                "BACK" -> return it.goBack()
+                "HOME" -> return it.goHome()
+            }
+        }
+        val code = when (key) {
             "BACK" -> 4
             "HOME" -> 3
             "ENTER", "RETURN" -> 66
@@ -113,6 +129,61 @@ class AndroidActions(
         } ?: return "错误：未知按键 $name。可用 BACK / HOME / ENTER / RECENTS / DELETE / PASTE。"
         return shizuku.exec("input keyevent $code")
     }
+
+    override suspend fun uiStatus(): String = buildString {
+        val live = MuseAccessibilityService.instance != null
+        val enabled = MuseAccessibilityService.enabled(app)
+        append("accessibility_enabled=").append(enabled)
+        append('\n')
+        append("accessibility_live=").append(live)
+        append('\n')
+        if (enabled && !live) append("hint=无障碍已开但服务未连上，请在系统设置里开关一次 Muse。\n")
+        append(shizuku.statusLine())
+    }
+
+    override suspend fun uiSnapshot(): String {
+        a11y()?.let { return it.snapshotText() }
+        val dump = uiDump()
+        return if (dump.startsWith("错误")) {
+            "错误：无障碍未开启，Shizuku dump 也失败。$dump"
+        } else {
+            "source=shizuku\n$dump"
+        }
+    }
+
+    override suspend fun findNodes(query: String): String {
+        a11y()?.let { return it.find(query) }
+        val dump = uiDump()
+        val hits = dump.lines().filter { it.contains(query, ignoreCase = true) }
+        return if (hits.isEmpty()) "没有匹配「$query」。" else hits.joinToString("\n")
+    }
+
+    override suspend fun clickNode(id: String): String {
+        a11y()?.let { return it.clickId(id) }
+        return "错误：click_node 需要无障碍。设置里打开 Accessibility，或改用 click_text / tap。"
+    }
+
+    override suspend fun clickText(text: String): String {
+        a11y()?.let { return it.clickText(text) }
+        val dump = uiDump()
+        if (dump.startsWith("错误")) return dump
+        val line = dump.lines().firstOrNull { it.contains(text, ignoreCase = true) }
+            ?: return "错误：dump 里没有「$text」。"
+        val point = parseDumpBounds(line) ?: return "错误：无法解析 bounds：$line"
+        return tap(point.first, point.second)
+    }
+
+    override suspend fun scroll(direction: String): String {
+        a11y()?.let { return it.scroll(direction) }
+        return "错误：scroll 需要无障碍或改用 swipe。"
+    }
+
+    override suspend fun waitMs(ms: Int): String {
+        delay(ms.toLong())
+        return "已等待 ${ms}ms"
+    }
+
+    private fun a11y(): MuseAccessibilityService? = MuseAccessibilityService.instance
 
     private fun launch(intent: Intent, ok: String): String {
         return try {

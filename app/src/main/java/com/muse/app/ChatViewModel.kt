@@ -52,6 +52,7 @@ data class ChatUiState(
     val updateNotice: String? = null,
     val updateHint: String? = null,
     val shizukuLine: String = "",
+    val a11yLine: String = "",
 )
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -85,7 +86,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun refreshShizuku() {
-        _state.update { it.copy(shizukuLine = graph.shizuku.statusLine().replace("\n", " · ")) }
+        val a11yOn = MuseAccessibilityService.enabled(getApplication())
+        val a11yLive = MuseAccessibilityService.instance != null
+        _state.update {
+            it.copy(
+                shizukuLine = graph.shizuku.statusLine().replace("\n", " · "),
+                a11yLine = "accessibility_enabled=$a11yOn · live=$a11yLive",
+            )
+        }
     }
 
     fun requestShizuku(): String {

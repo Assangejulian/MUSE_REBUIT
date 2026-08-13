@@ -91,12 +91,52 @@ fun museToolDefinitions(): List<ToolDefinition> = listOf(
         required = listOf("name"),
     ),
     toolSchema(
+        name = "ui_status",
+        description = "Check Accessibility and Shizuku. Accessibility is preferred for reading/clicking nodes.",
+    ),
+    toolSchema(
+        name = "ui_snapshot",
+        description = "Observe the current screen as a compact node list. Prefer this before click_node/click_text. Uses Accessibility when on, else Shizuku dump.",
+    ),
+    toolSchema(
+        name = "find_nodes",
+        description = "Search the latest snapshot for text, content-desc, viewId, or node id (n3).",
+        properties = buildProps("query" to "Text or node id to find"),
+        required = listOf("query"),
+    ),
+    toolSchema(
+        name = "click_node",
+        description = "Click a node by id from the last ui_snapshot (e.g. n3). Rematches on a fresh tree. Prefer this over raw tap.",
+        properties = buildProps("id" to "Node id like n3"),
+        required = listOf("id"),
+    ),
+    toolSchema(
+        name = "click_text",
+        description = "Find a visible node containing this text and click it.",
+        properties = buildProps("text" to "Visible text or content-desc"),
+        required = listOf("text"),
+    ),
+    toolSchema(
+        name = "scroll",
+        description = "Scroll the current screen. Direction: up, down, left, right.",
+        properties = buildProps("direction" to "up/down/left/right"),
+        required = listOf("direction"),
+    ),
+    toolSchema(
+        name = "wait",
+        description = "Wait for the UI to settle, in milliseconds (200-4000).",
+        properties = buildJsonObject {
+            put("ms", buildJsonObject { put("type", "integer"); put("description", "Milliseconds") })
+        },
+        required = listOf("ms"),
+    ),
+    toolSchema(
         name = "shizuku_status",
-        description = "Check whether Shizuku is running and authorized. Required before tap/type/ui_dump/shell.",
+        description = "Check whether Shizuku is running and authorized.",
     ),
     toolSchema(
         name = "ui_dump",
-        description = "Dump the current foreground UI via uiautomator (Shizuku). Returns clickable nodes with bounds. Call this before tap.",
+        description = "Raw uiautomator dump via Shizuku. Use only if ui_snapshot is empty.",
     ),
     toolSchema(
         name = "tap",
@@ -162,13 +202,14 @@ When the user states a lasting preference, call memory_write.
 Use device_status for time, battery, timezone, or network.
 Use web_search for current facts. Never http_fetch search result pages.
 If DeepSeek chat works, the phone has internet.
-Device control uses Shizuku:
-1. shizuku_status if unsure
-2. open_app or am start to leave Muse
-3. ui_dump to see nodes and bounds
-4. tap the center of a bounds box, type_text, swipe, or keyevent BACK/HOME
-5. ui_dump again after each mutating action
-Do not invent coordinates. Read them from ui_dump.
+Device control:
+1. ui_status if unsure. Prefer Accessibility over Shizuku tap.
+2. open_app to leave Muse
+3. ui_snapshot to see nodes (n1, n2…). Do not invent ids.
+4. click_node or click_text. After each click/scroll/type, ui_snapshot again.
+5. type_text into the focused field. scroll up/down. keyevent BACK/HOME.
+6. tap/swipe/ui_dump only if snapshot has no useful nodes (custom-drawn UI).
+If a tool returns a 安全策略拦截, stop and tell the user.
 Use note_save when the user asks to keep a note.
 Call finish when a multi-step task is complete.
 """
