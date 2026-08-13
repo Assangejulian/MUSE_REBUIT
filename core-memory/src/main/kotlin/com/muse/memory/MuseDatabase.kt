@@ -11,6 +11,8 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Update
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "sessions")
@@ -29,6 +31,8 @@ data class MessageEntity(
     val content: String,
     val reasoning: String,
     val toolJson: String,
+    val toolCallId: String = "",
+    val name: String = "",
     val createdAt: Long,
     val ordinal: Int,
 )
@@ -91,7 +95,7 @@ interface NoteDao {
 
 @Database(
     entities = [SessionEntity::class, MessageEntity::class, NoteEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class MuseDatabase : RoomDatabase() {
@@ -100,7 +104,16 @@ abstract class MuseDatabase : RoomDatabase() {
     abstract fun notes(): NoteDao
 
     companion object {
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE messages ADD COLUMN toolCallId TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE messages ADD COLUMN name TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         fun create(context: Context): MuseDatabase =
-            Room.databaseBuilder(context, MuseDatabase::class.java, "muse.db").build()
+            Room.databaseBuilder(context, MuseDatabase::class.java, "muse.db")
+                .addMigrations(MIGRATION_1_2)
+                .build()
     }
 }

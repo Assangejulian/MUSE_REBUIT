@@ -103,6 +103,8 @@ class SessionRepository(private val db: MuseDatabase) {
                 toolJson = message.toolCalls?.let {
                     MuseJson.encodeToString(ListSerializer(ToolCall.serializer()), it)
                 }.orEmpty(),
+                toolCallId = message.toolCallId.orEmpty(),
+                name = message.name.orEmpty(),
                 createdAt = System.currentTimeMillis(),
                 ordinal = ordinal,
             ),
@@ -144,5 +146,7 @@ fun MessageEntity.toChatMessage(): ChatMessage {
         content = content,
         reasoningContent = reasoning.ifBlank { null },
         toolCalls = tools,
+        toolCallId = toolCallId.ifBlank { null },
+        name = name.ifBlank { null },
     )
 }

@@ -105,6 +105,59 @@ class AgentRuntimeTest {
     }
 
     @Test
+    fun toolCapPersistsAssistantAndToolTurns() = runTest {
+        val ports = FakePorts()
+        val llm = ScriptedLlm(
+            mutableListOf(
+                {
+                    ChatMessage(
+                        role = "assistant",
+                        reasoningContent = "先打开应用",
+                        toolCalls = listOf(
+                            ToolCall("c1", function = ToolFunctionCall("open_app", """{"name":"x"}""")),
+                        ),
+                    )
+                },
+            ),
+        )
+        val runtime = AgentRuntime(llm, ports, ports, ports, ports, ports, ports, maxRounds = 1)
+        val events = runtime.run(emptyList(), "打开应用", config).toList()
+        val turns = events.filterIsInstance<AgentEvent.TurnMessage>().map { it.message }
+        assertTrue(turns.any { it.role == "assistant" && it.toolCalls != null })
+        assertTrue(turns.any { it.role == "tool" && it.name == "open_app" })
+        assertTrue(turns.any { it.role == "assistant" && it.content.orEmpty().contains("上限") })
+        assertTrue(events.last() is AgentEvent.Failed)
+    }
+
+    @Test
+    fun followUpSeesPriorToolTrace() = runTest {
+        val ports = FakePorts()
+        val prior = listOf(
+            ChatMessage(role = "user", content = "打开应用"),
+            ChatMessage(
+                role = "assistant",
+                reasoningContent = "先开应用",
+                toolCalls = listOf(
+                    ToolCall("c1", function = ToolFunctionCall("open_app", """{"name":"x"}""")),
+                ),
+            ),
+            ChatMessage(role = "tool", content = "已打开 app.example", toolCallId = "c1", name = "open_app"),
+            ChatMessage(role = "assistant", content = "本轮 Tool 次数已达上限（16）。"),
+        )
+        val llm = ScriptedLlm(
+            mutableListOf({ incoming ->
+                assertTrue(incoming.any { it.role == "tool" && it.content?.contains("app.example") == true })
+                assertTrue(incoming.any { it.reasoningContent == "先开应用" })
+                ChatMessage(role = "assistant", content = "上次已经打开了。")
+            }),
+        )
+        val runtime = AgentRuntime(llm, ports, ports, ports, ports, ports, ports)
+        val events = runtime.run(prior, "刚才卡在哪", config).toList()
+        val done = events.last() as AgentEvent.Completed
+        assertEquals("上次已经打开了。", done.assistant.content)
+    }
+
+    @Test
     fun stopsRepeatingSameTool() = runTest {
         val ports = FakePorts()
         val llm = ScriptedLlm(

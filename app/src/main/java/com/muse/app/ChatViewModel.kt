@@ -132,8 +132,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 it.copy(
                     ready = true,
                     session = session,
-                    messages = stored.filter { msg -> msg.role == "user" || msg.role == "assistant" }
-                        .map { msg -> msg.toUi() },
+                    messages = foldMessagesForUi(stored),
                     error = null,
                 )
             }
@@ -268,6 +267,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             }
                             it.copy(tools = tools)
                         }
+                        is AgentEvent.TurnMessage -> {
+                            graph.sessions.saveMessage(sid, event.message)
+                        }
                         is AgentEvent.Failed -> {
                             patchAssistant(assistantId) {
                                 it.copy(
@@ -279,12 +281,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             _state.update { it.copy(error = event.message, running = false) }
                         }
                         is AgentEvent.Completed -> {
-                            val snapshot = _state.value.messages.lastOrNull { it.id == assistantId }
-                            val stored = event.assistant.copy(
-                                content = snapshot?.content?.ifBlank { event.assistant.content },
-                                reasoningContent = snapshot?.thinking?.ifBlank { event.assistant.reasoningContent },
-                            )
-                            graph.sessions.saveMessage(sid, stored, assistantId)
                             patchAssistant(assistantId) { it.copy(streaming = false) }
                             _state.update { it.copy(running = false) }
                         }
@@ -314,6 +310,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 },
             )
         }
+        val sid = sessionId ?: return
+        viewModelScope.launch { closeOpenTurn(sid, "已停止。") }
+    }
+
+    private suspend fun closeOpenTurn(sessionId: String, reason: String) {
+        val last = graph.sessions.listMessages(sessionId).lastOrNull() ?: return
+        if (last.role == "tool" || last.toolCalls != null) {
+            graph.sessions.saveMessage(sessionId, ChatMessage(role = "assistant", content = reason))
+        }
     }
 
     private fun patchAssistant(id: String, transform: (UiMessage) -> UiMessage) {
@@ -323,6 +328,46 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
     }
+}
+
+internal fun foldMessagesForUi(messages: List<ChatMessage>): List<UiMessage> {
+    val out = ArrayList<UiMessage>()
+    var pending: UiMessage? = null
+    for (msg in messages) {
+        when (msg.role) {
+            "user" -> {
+                pending?.let { out += it }
+                pending = null
+                out += msg.toUi()
+            }
+            "assistant" -> {
+                val ui = msg.toUi()
+                pending = if (pending == null) {
+                    ui
+                } else {
+                    pending.copy(
+                        thinking = listOf(pending.thinking, ui.thinking).filter { it.isNotBlank() }.joinToString("\n"),
+                        content = ui.content.ifBlank { pending.content },
+                        tools = pending.tools + ui.tools,
+                        error = pending.error || ui.content.contains("上限") || ui.content.contains("已停止"),
+                    )
+                }
+            }
+            "tool" -> {
+                val current = pending ?: continue
+                val tools = current.tools.toMutableList()
+                val idx = tools.indexOfLast { it.name == msg.name && it.result.isEmpty() }
+                if (idx >= 0) {
+                    tools[idx] = tools[idx].copy(result = msg.content.orEmpty(), done = true)
+                } else {
+                    tools += UiTool(msg.name.orEmpty(), "", msg.content.orEmpty(), done = true)
+                }
+                pending = current.copy(tools = tools)
+            }
+        }
+    }
+    pending?.let { out += it }
+    return out
 }
 
 private fun ChatMessage.toUi(): UiMessage = UiMessage(

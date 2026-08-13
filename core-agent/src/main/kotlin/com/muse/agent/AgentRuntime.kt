@@ -32,6 +32,7 @@ sealed class AgentEvent {
     data class ContentDelta(val text: String) : AgentEvent()
     data class ToolStarted(val name: String, val args: String) : AgentEvent()
     data class ToolFinished(val name: String, val result: String, val ok: Boolean) : AgentEvent()
+    data class TurnMessage(val message: ChatMessage) : AgentEvent()
     data class Failed(val message: String) : AgentEvent()
     data class Completed(val assistant: ChatMessage) : AgentEvent()
 }
@@ -68,6 +69,21 @@ class AgentRuntime(
         val repeats = LinkedHashMap<String, Int>()
         var lastAssistant = ChatMessage(role = "assistant", content = "")
         var finishedByTool = false
+        val out = this
+
+        suspend fun persist(msg: ChatMessage) {
+            out.emit(AgentEvent.TurnMessage(msg))
+        }
+
+        suspend fun fail(reason: String) {
+            val last = messages.lastOrNull()
+            if (last?.role == "tool" || last?.toolCalls != null) {
+                val closer = ChatMessage(role = "assistant", content = reason)
+                messages += closer
+                persist(closer)
+            }
+            out.emit(AgentEvent.Failed(reason))
+        }
 
         try {
             repeat(maxRounds) { round ->
@@ -90,20 +106,22 @@ class AgentRuntime(
                     }
                 }
                 failed?.let {
-                    emit(AgentEvent.Failed(it.message))
+                    fail(it.message)
                     return@flow
                 }
                 val assistant = finished ?: run {
-                    emit(AgentEvent.Failed("模型没有返回完整消息。"))
+                    fail("模型没有返回完整消息。")
                     return@flow
                 }
                 lastAssistant = assistant
                 val calls = assistant.toolCalls.orEmpty()
                 if (calls.isEmpty()) {
+                    persist(assistant)
                     emit(AgentEvent.Completed(assistant))
                     return@flow
                 }
                 messages += assistant
+                persist(assistant)
                 for (call in calls) {
                     val key = "${call.function.name}|${call.function.arguments}"
                     val count = (repeats[key] ?: 0) + 1
@@ -117,12 +135,14 @@ class AgentRuntime(
                     val clipped = clip(result)
                     val ok = !clipped.startsWith("错误：") && count < 3
                     emit(AgentEvent.ToolFinished(call.function.name, clipped, ok))
-                    messages += ChatMessage(
+                    val toolMsg = ChatMessage(
                         role = "tool",
                         content = clipped,
                         toolCallId = call.id,
                         name = call.function.name,
                     )
+                    messages += toolMsg
+                    persist(toolMsg)
                     if (call.function.name == "finish") {
                         finishedByTool = true
                     }
@@ -132,15 +152,16 @@ class AgentRuntime(
                     return@flow
                 }
                 if (round == maxRounds - 1) {
-                    emit(AgentEvent.Failed("本轮 Tool 次数已达上限（$maxRounds）。"))
+                    fail("本轮 Tool 次数已达上限（$maxRounds）。")
                     return@flow
                 }
             }
+            persist(lastAssistant)
             emit(AgentEvent.Completed(lastAssistant))
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (t: Throwable) {
-            emit(AgentEvent.Failed(t.message ?: "Agent 循环失败。"))
+            fail(t.message ?: "Agent 循环失败。")
         }
     }.flowOn(Dispatchers.IO)
 
