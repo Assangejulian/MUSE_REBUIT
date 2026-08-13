@@ -14,3 +14,4 @@
 | `Muse-0.2.0-debug.apk` | 0.2.0 | 2026-08-13 | Shizuku 控制（tap/type/ui_dump/shell）+ 任务悬浮窗中文 CoT |
 | `Muse-0.3.0-debug.apk` | 0.3.0 | 2026-08-13 | 无障碍树 + click_node/click_text；Shizuku 兜底 |
 | `Muse-0.3.1-debug.apk` | 0.3.1 | 2026-08-13 | 去掉特化硬编码；点击拦截改为用户 blocklist |
+| `Muse-0.3.2-debug.apk` | 0.3.2 | 2026-08-13 | Tool 轮次上限 16 → 100 |

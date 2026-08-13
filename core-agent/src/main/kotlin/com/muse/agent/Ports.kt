@@ -7,7 +7,7 @@ import com.muse.llm.toolSchema
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-const val MAX_TOOL_ROUNDS = 16
+const val MAX_TOOL_ROUNDS = 100
 const val TOOL_TIMEOUT_MS = 20_000L
 const val TOOL_OUTPUT_LIMIT = 8 * 1024
 
