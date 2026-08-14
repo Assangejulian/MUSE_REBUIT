@@ -13,7 +13,11 @@ import com.muse.agent.UrlBlocked
 import com.muse.agent.UrlGuard
 import com.muse.agent.compactUiDump
 import com.muse.agent.formatOcrHits
+import com.muse.agent.formatScheduleInstant
 import com.muse.agent.parseDumpBounds
+import com.muse.agent.parseScheduleWhen
+import com.muse.memory.ScheduleEntity
+import com.muse.memory.ScheduleRepository
 import com.muse.memory.SettingsStore
 import kotlinx.coroutines.delay
 
@@ -22,6 +26,8 @@ class AndroidActions(
     private val shizuku: ShizukuGateway,
     private val overlay: CotOverlay? = null,
     private val settings: SettingsStore? = null,
+    private val schedules: ScheduleRepository? = null,
+    private val alarms: ScheduleAlarms? = null,
 ) : ActionPort {
     private val app = context.applicationContext
 
@@ -239,6 +245,66 @@ class AndroidActions(
             ov.collapse(theme)
             "悬浮窗已收成小球，点一下可打开。"
         }
+    }
+
+    override suspend fun scheduleCreate(
+        title: String,
+        prompt: String,
+        mode: String,
+        `when`: String,
+        repeat: String,
+    ): String {
+        val store = schedules ?: return "错误：定时存储不可用。"
+        val clock = alarms ?: return "错误：闹钟不可用。"
+        val name = title.trim().ifBlank { "未命名" }
+        val body = prompt.trim()
+        if (body.isEmpty()) return "错误：prompt 不能为空。"
+        val spec = try {
+            parseScheduleWhen(`when`, repeat)
+        } catch (e: IllegalArgumentException) {
+            return "错误：${e.message}"
+        }
+        val id = newScheduleId()
+        val job = ScheduleEntity(
+            id = id,
+            title = name,
+            prompt = body,
+            mode = if (mode.equals("chat", true)) "chat" else "task",
+            repeat = spec.repeat,
+            hour = spec.hour,
+            minute = spec.minute,
+            nextAt = spec.nextAt,
+            enabled = true,
+            lastRunAt = 0L,
+            lastStatus = "",
+            createdAt = System.currentTimeMillis(),
+        )
+        store.upsert(job)
+        clock.set(job)
+        val exact = if (clock.canExact()) "" else " 精确闹钟未授权，可能会晚点响。去系统设置允许 Muse 精确闹钟。"
+        return "已写入定时 $id「$name」${if (spec.repeat == "daily") "每天" else "一次"} ${formatScheduleInstant(spec.nextAt)}。$exact"
+    }
+
+    override suspend fun scheduleList(): String {
+        val store = schedules ?: return "错误：定时存储不可用。"
+        val jobs = store.list()
+        if (jobs.isEmpty()) return "定时清单是空的。"
+        return jobs.joinToString("\n") { job ->
+            val flag = if (job.enabled) "开" else "关"
+            val kind = if (job.repeat == "daily") "每天" else "一次"
+            val next = if (job.nextAt > 0) formatScheduleInstant(job.nextAt) else "-"
+            val last = job.lastStatus.ifBlank { "-" }
+            "$flag $kind ${job.id} 「${job.title}」下次 $next 上次：$last"
+        }
+    }
+
+    override suspend fun scheduleCancel(id: String): String {
+        val store = schedules ?: return "错误：定时存储不可用。"
+        val clock = alarms
+        val job = store.get(id.trim()) ?: return "错误：没有这条定时（$id）。"
+        store.delete(job.id)
+        clock?.cancel(job.id)
+        return "已取消 ${job.id}「${job.title}」。"
     }
 
     private data class Shot(val first: Bitmap, val second: String)

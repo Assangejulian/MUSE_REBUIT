@@ -1,5 +1,6 @@
 package com.muse.app
 
+import android.app.Application
 import android.content.Context
 import android.os.BatteryManager
 import android.net.ConnectivityManager
@@ -17,6 +18,7 @@ import com.muse.memory.BlocklistStore
 import com.muse.memory.MemoryFileStore
 import com.muse.memory.MuseDatabase
 import com.muse.memory.NoteStore
+import com.muse.memory.ScheduleRepository
 import com.muse.memory.SessionRepository
 import com.muse.app.update.UpdateManager
 import com.muse.memory.SettingsStore
@@ -38,7 +40,10 @@ class AppGraph(context: Context) {
     val search = WebSearcher(okHttp)
     val shizuku = ShizukuGateway(app)
     val overlay = CotOverlay(app)
-    val actions = AndroidActions(app, shizuku, overlay, settings)
+    val schedules = ScheduleRepository(db)
+    val alarms = ScheduleAlarms(app)
+    val actions = AndroidActions(app, shizuku, overlay, settings, schedules, alarms)
+    val scheduleHost = ScheduleHost(app as Application, this)
     val memoryPort = object : MemoryPort {
         override suspend fun read(): String = memoryFiles.read()
         override suspend fun write(op: String, text: String): String = memoryFiles.write(op, text)

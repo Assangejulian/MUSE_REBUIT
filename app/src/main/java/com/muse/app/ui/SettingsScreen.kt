@@ -73,6 +73,7 @@ fun SettingsScreen(
     onRefreshShizuku: () -> Unit = {},
     onRequestOverlay: () -> Unit = {},
     onRequestA11y: () -> Unit = {},
+    onOpenSchedules: () -> Unit = {},
 ) {
     val palette = LocalPalette.current
     var apiKey by remember(settings.apiKey) { mutableStateOf(settings.apiKey) }
@@ -168,6 +169,15 @@ fun SettingsScreen(
                 selected = settings.theme,
                 onSelect = { value -> onChange { it.copy(theme = value) } },
             )
+            Spacer(Modifier.height(16.dp))
+            SectionLabel("定时任务")
+            Text("对话里让 Muse 写入，或打开清单手建。到点按提示词跑；页面上的领取时间用一次性补跑。", color = palette.subtext0, fontSize = 13.sp)
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = onOpenSchedules,
+                colors = ButtonDefaults.buttonColors(containerColor = palette.mauve, contentColor = palette.base),
+                shape = RoundedCornerShape(14.dp),
+            ) { Text("打开定时清单") }
             Spacer(Modifier.height(16.dp))
             SectionLabel("任务悬浮窗")
             ChipRow(

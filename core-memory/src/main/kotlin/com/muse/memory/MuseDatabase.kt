@@ -45,6 +45,22 @@ data class NoteEntity(
     val createdAt: Long,
 )
 
+@Entity(tableName = "schedules")
+data class ScheduleEntity(
+    @PrimaryKey val id: String,
+    val title: String,
+    val prompt: String,
+    val mode: String,
+    val repeat: String,
+    val hour: Int,
+    val minute: Int,
+    val nextAt: Long,
+    val enabled: Boolean,
+    val lastRunAt: Long,
+    val lastStatus: String,
+    val createdAt: Long,
+)
+
 @Dao
 interface SessionDao {
     @Query("SELECT * FROM sessions ORDER BY updatedAt DESC")
@@ -93,15 +109,37 @@ interface NoteDao {
     suspend fun list(): List<NoteEntity>
 }
 
+@Dao
+interface ScheduleDao {
+    @Query("SELECT * FROM schedules ORDER BY nextAt ASC")
+    fun observeAll(): Flow<List<ScheduleEntity>>
+
+    @Query("SELECT * FROM schedules ORDER BY nextAt ASC")
+    suspend fun list(): List<ScheduleEntity>
+
+    @Query("SELECT * FROM schedules WHERE enabled = 1")
+    suspend fun listEnabled(): List<ScheduleEntity>
+
+    @Query("SELECT * FROM schedules WHERE id = :id")
+    suspend fun get(id: String): ScheduleEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(item: ScheduleEntity)
+
+    @Query("DELETE FROM schedules WHERE id = :id")
+    suspend fun delete(id: String)
+}
+
 @Database(
-    entities = [SessionEntity::class, MessageEntity::class, NoteEntity::class],
-    version = 2,
+    entities = [SessionEntity::class, MessageEntity::class, NoteEntity::class, ScheduleEntity::class],
+    version = 3,
     exportSchema = false,
 )
 abstract class MuseDatabase : RoomDatabase() {
     abstract fun sessions(): SessionDao
     abstract fun messages(): MessageDao
     abstract fun notes(): NoteDao
+    abstract fun schedules(): ScheduleDao
 
     companion object {
         private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -111,9 +149,32 @@ abstract class MuseDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS schedules (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        title TEXT NOT NULL,
+                        prompt TEXT NOT NULL,
+                        mode TEXT NOT NULL,
+                        `repeat` TEXT NOT NULL,
+                        hour INTEGER NOT NULL,
+                        minute INTEGER NOT NULL,
+                        nextAt INTEGER NOT NULL,
+                        enabled INTEGER NOT NULL,
+                        lastRunAt INTEGER NOT NULL,
+                        lastStatus TEXT NOT NULL,
+                        createdAt INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+            }
+        }
+
         fun create(context: Context): MuseDatabase =
             Room.databaseBuilder(context, MuseDatabase::class.java, "muse.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
     }
 }

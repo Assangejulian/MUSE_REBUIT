@@ -18,6 +18,7 @@ val OBSERVE_TOOLS = setOf(
     "shizuku_status",
     "memory_read",
     "ocr_screen",
+    "schedule_list",
 )
 
 interface MemoryPort {
@@ -58,6 +59,9 @@ fun museToolChoices(): List<ToolChoice> = listOf(
     ToolChoice("ui_snapshot", "看当前界面"),
     ToolChoice("ocr_screen", "屏幕 OCR"),
     ToolChoice("float_window", "悬浮窗"),
+    ToolChoice("schedule_task", "写入定时"),
+    ToolChoice("schedule_list", "定时清单"),
+    ToolChoice("schedule_cancel", "取消定时"),
     ToolChoice("click_text", "点文字"),
     ToolChoice("click_node", "点节点"),
     ToolChoice("type_text", "输入文字"),
@@ -153,6 +157,34 @@ fun museToolDefinitions(): List<ToolDefinition> = listOf(
             put("state", buildEnumProp("on shows the overlay, off hides it", listOf("on", "off")))
         },
         required = listOf("state"),
+    ),
+    toolSchema(
+        name = "schedule_task",
+        description = "Add a timed job. Use daily for a standing check; use once plus an absolute time (today 14:32) when you just read a clock from the screen. Do not hardcode app-specific hours unless the user said them.",
+        properties = buildJsonObject {
+            put("title", buildProps().let {
+                buildJsonObject { put("type", "string"); put("description", "Short title") }
+            })
+            put("prompt", buildProps().let {
+                buildJsonObject { put("type", "string"); put("description", "What to do when it fires") }
+            })
+            put("mode", buildEnumProp("chat has no device tools; task can operate the phone", listOf("chat", "task")))
+            put("when", buildProps().let {
+                buildJsonObject { put("type", "string"); put("description", "08:00, today 14:32, 2026-08-15 14:32, or 30分钟后") }
+            })
+            put("repeat", buildEnumProp("once or every day at that clock time", listOf("once", "daily")))
+        },
+        required = listOf("title", "prompt", "when"),
+    ),
+    toolSchema(
+        name = "schedule_list",
+        description = "List saved timed jobs with ids and next run times.",
+    ),
+    toolSchema(
+        name = "schedule_cancel",
+        description = "Disable and remove a timed job by id from schedule_list.",
+        properties = buildProps("id" to "Job id like s12ab34cd"),
+        required = listOf("id"),
     ),
     toolSchema(
         name = "find_nodes",
@@ -268,6 +300,8 @@ Device control:
 6. tap/swipe/ui_dump only if snapshot has no useful nodes (custom-drawn UI).
 7. ocr_screen when the tree is empty, custom-drawn, or you need to double-check visible text. It returns text plus tap centers. Prefer ui_snapshot first — OCR is slower. Use OCR to assist judgment, not as the default look.
 8. float_window off shrinks the overlay to a ball if it blocks taps; float_window on expands it. The user can tap the ball to reopen.
+9. Timed jobs: if the user asks to do something every day / at a clock, call schedule_task. For pages that show a changing claim time, write a daily job whose prompt says: do it now if possible; otherwise read the clock and schedule_task once at that exact today HH:mm.
+Use schedule_list / schedule_cancel to inspect or drop jobs.
 Use note_save when the user asks to keep a note.
 Call finish when a multi-step task is complete.
 """

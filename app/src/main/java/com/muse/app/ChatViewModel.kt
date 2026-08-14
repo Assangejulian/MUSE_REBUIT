@@ -12,6 +12,7 @@ import com.muse.llm.ChatMessage
 import com.muse.llm.MODEL_FLASH
 import com.muse.llm.MODEL_PRO
 import com.muse.memory.MuseSettings
+import com.muse.memory.ScheduleEntity
 import com.muse.memory.SessionEntity
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,6 +56,8 @@ data class ChatUiState(
     val shizukuLine: String = "",
     val a11yLine: String = "",
     val extraTools: Set<String> = emptySet(),
+    val schedules: List<ScheduleEntity> = emptyList(),
+    val exactAlarm: Boolean = true,
 )
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -86,6 +89,34 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         refreshShizuku()
         graph.overlay.onStop = { stop() }
         viewModelScope.launch { UiSafety.load(graph.blocklist.read()) }
+        viewModelScope.launch {
+            graph.schedules.observe().collect { list ->
+                _state.update { it.copy(schedules = list, exactAlarm = graph.alarms.canExact()) }
+            }
+        }
+        viewModelScope.launch { graph.scheduleHost.resync() }
+    }
+
+    fun refreshExactAlarm() {
+        _state.update { it.copy(exactAlarm = graph.alarms.canExact()) }
+    }
+
+    suspend fun addSchedule(title: String, prompt: String, mode: String, `when`: String, repeat: String): String =
+        graph.actions.scheduleCreate(title, prompt, mode, `when`, repeat)
+
+    fun setScheduleEnabled(id: String, enabled: Boolean) {
+        viewModelScope.launch {
+            val job = graph.schedules.get(id) ?: return@launch
+            val next = job.copy(enabled = enabled)
+            graph.schedules.upsert(next)
+            graph.alarms.set(next)
+        }
+    }
+
+    fun deleteSchedule(id: String) {
+        viewModelScope.launch {
+            graph.actions.scheduleCancel(id)
+        }
     }
 
     fun refreshShizuku() {
@@ -229,9 +260,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         _state.update { it.copy(input = "", error = null) }
         runJob?.cancel()
         runJob = viewModelScope.launch {
+            if (!graph.scheduleHost.mutex.tryLock()) {
+                _state.update { it.copy(error = "有定时任务正在跑，稍后再发。", running = false) }
+                return@launch
+            }
+            val assistantId = UUID.randomUUID().toString()
+            try {
             val userMsg = ChatMessage(role = "user", content = text)
             graph.sessions.saveMessage(sid, userMsg)
-            val assistantId = UUID.randomUUID().toString()
             _state.update {
                 it.copy(
                     running = true,
@@ -320,6 +356,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 (getApplication() as MuseApplication).taskHost?.exitTaskMode()
                 _state.update { it.copy(running = false) }
                 patchAssistant(assistantId) { it.copy(streaming = false) }
+            }
+            } finally {
+                if (graph.scheduleHost.mutex.isLocked) graph.scheduleHost.mutex.unlock()
             }
         }
     }

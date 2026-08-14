@@ -64,6 +64,15 @@ class FakePorts : MemoryPort, NotePort, DevicePort, HttpPort, SearchPort, Action
     override suspend fun waitMs(ms: Int): String = "wait $ms"
     override suspend fun ocrScreen(): String = "ocr:ok"
     override suspend fun floatWindow(on: Boolean): String = "float:$on"
+    override suspend fun scheduleCreate(
+        title: String,
+        prompt: String,
+        mode: String,
+        `when`: String,
+        repeat: String,
+    ): String = "sched:$title"
+    override suspend fun scheduleList(): String = "(empty)"
+    override suspend fun scheduleCancel(id: String): String = "cancel:$id"
 }
 
 class AgentRuntimeTest {
@@ -259,6 +268,9 @@ class AgentRuntimeTest {
         assertTrue(names.contains("ui_snapshot"))
         assertTrue(names.contains("ocr_screen"))
         assertTrue(names.contains("float_window"))
+        assertTrue(names.contains("schedule_task"))
+        assertTrue(names.contains("schedule_list"))
+        assertTrue(names.contains("schedule_cancel"))
         assertTrue(names.contains("click_node"))
         assertTrue(names.contains("click_text"))
     }

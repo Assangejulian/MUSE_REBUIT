@@ -2,6 +2,7 @@ package com.muse.app
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
@@ -23,6 +24,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.muse.app.ui.ChatScreen
 import com.muse.app.ui.OnboardingScreen
+import com.muse.app.ui.ScheduleScreen
 import com.muse.app.ui.SessionsScreen
 import com.muse.app.ui.SettingsScreen
 import com.muse.design.MuseTheme
@@ -87,6 +89,7 @@ class MainActivity : ComponentActivity(), TaskHost {
                                     memoryReplaceOnImport = false
                                     memoryImport.launch(arrayOf("text/plain", "text/markdown", "text/*"))
                                 },
+                                onOpenSchedules = { nav.navigate("schedules") },
                             )
                         }
                         composable("sessions") {
@@ -143,6 +146,29 @@ class MainActivity : ComponentActivity(), TaskHost {
                                 onRequestA11y = {
                                     startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                                 },
+                                onOpenSchedules = { nav.navigate("schedules") },
+                            )
+                        }
+                        composable("schedules") {
+                            LaunchedEffect(Unit) { viewModel.refreshExactAlarm() }
+                            ScheduleScreen(
+                                jobs = state.schedules,
+                                exactAlarm = state.exactAlarm,
+                                onBack = { nav.popBackStack() },
+                                onRequestExactAlarm = {
+                                    if (Build.VERSION.SDK_INT >= 31) {
+                                        startActivity(
+                                            Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                                                data = Uri.parse("package:$packageName")
+                                            },
+                                        )
+                                    }
+                                },
+                                onAdd = { title, prompt, mode, `when`, repeat ->
+                                    viewModel.addSchedule(title, prompt, mode, `when`, repeat)
+                                },
+                                onToggle = viewModel::setScheduleEnabled,
+                                onDelete = viewModel::deleteSchedule,
                             )
                         }
                     }

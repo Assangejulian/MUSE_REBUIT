@@ -86,6 +86,7 @@ fun ChatScreen(
     onSetTaskMode: (Boolean) -> Unit = {},
     onToggleExtraTool: (String) -> Unit = {},
     onImportMemory: () -> Unit = {},
+    onOpenSchedules: () -> Unit = {},
 ) {
     val palette = LocalPalette.current
     val style = LocalMuseStyle.current
@@ -214,6 +215,10 @@ fun ChatScreen(
             onImportMemory = {
                 toolsOpen = false
                 onImportMemory()
+            },
+            onOpenSchedules = {
+                toolsOpen = false
+                onOpenSchedules()
             },
         )
     }
@@ -352,6 +357,7 @@ private fun ToolPickerSheet(
     onSetTaskMode: (Boolean) -> Unit,
     onToggleExtraTool: (String) -> Unit,
     onImportMemory: () -> Unit,
+    onOpenSchedules: () -> Unit,
 ) {
     val palette = LocalPalette.current
     ModalBottomSheet(
@@ -402,6 +408,15 @@ private fun ToolPickerSheet(
                 }
             }
             Spacer(Modifier.height(16.dp))
+            Text(
+                "定时任务清单",
+                color = palette.mauve,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onOpenSchedules)
+                    .padding(vertical = 8.dp),
+            )
             Text(
                 "导入到 memory.md",
                 color = palette.mauve,

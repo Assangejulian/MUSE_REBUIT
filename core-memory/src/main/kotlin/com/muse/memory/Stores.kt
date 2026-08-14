@@ -118,6 +118,20 @@ class SessionRepository(private val db: MuseDatabase) {
     }
 }
 
+class ScheduleRepository(private val db: MuseDatabase) {
+    fun observe(): Flow<List<ScheduleEntity>> = db.schedules().observeAll()
+
+    suspend fun list(): List<ScheduleEntity> = db.schedules().list()
+
+    suspend fun listEnabled(): List<ScheduleEntity> = db.schedules().listEnabled()
+
+    suspend fun get(id: String): ScheduleEntity? = db.schedules().get(id)
+
+    suspend fun upsert(item: ScheduleEntity) = db.schedules().upsert(item)
+
+    suspend fun delete(id: String) = db.schedules().delete(id)
+}
+
 class NoteStore(private val db: MuseDatabase) {
     suspend fun save(title: String, body: String): String {
         val id = UUID.randomUUID().toString()

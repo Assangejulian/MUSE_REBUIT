@@ -210,6 +210,18 @@ class AgentRuntime(
                     "ui_status" -> actions.uiStatus()
                     "ui_snapshot" -> actions.uiSnapshot()
                     "ocr_screen" -> actions.ocrScreen()
+                    "schedule_task" -> actions.scheduleCreate(
+                        title = args.string("title"),
+                        prompt = args.string("prompt"),
+                        mode = args.string("mode").ifBlank { "task" },
+                        `when` = args.string("when"),
+                        repeat = args.string("repeat").ifBlank { "once" },
+                    )
+                    "schedule_list" -> actions.scheduleList()
+                    "schedule_cancel" -> {
+                        val id = args.string("id")
+                        if (id.isBlank()) "错误：id 不能为空。" else actions.scheduleCancel(id)
+                    }
                     "float_window" -> {
                         val state = args.string("state").lowercase()
                         when (state) {
