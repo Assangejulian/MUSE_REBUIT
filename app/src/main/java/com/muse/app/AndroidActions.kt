@@ -209,9 +209,11 @@ class AndroidActions(
     }
 
     override suspend fun ocrScreen(): String {
-        val shown = overlay?.isShowing() == true
-        if (shown) overlay?.hide()
-        if (shown) delay(140)
+        val expanded = overlay?.isShowing() == true
+        val present = overlay?.isPresent() == true
+        if (present) overlay?.hide()
+        if (present) delay(140)
+        val theme = settings?.current()?.theme ?: "cream"
         return try {
             val shot = captureScreen() ?: return "错误：截屏失败。打开无障碍（Android 11+）或连接 Shizuku。"
             val hits = ScreenOcr.read(shot.first)
@@ -220,23 +222,22 @@ class AndroidActions(
         } catch (t: Throwable) {
             "错误：OCR 失败：${t.message ?: t::class.java.simpleName}"
         } finally {
-            if (shown) overlay?.show(settings?.current()?.theme ?: "cream")
+            if (expanded) overlay?.show(theme)
+            else if (present) overlay?.collapse(theme)
         }
     }
 
     override suspend fun floatWindow(on: Boolean): String {
         settings?.update { it.copy(floatOnTask = on) }
-        val ov = overlay ?: return if (on) "错误：悬浮窗不可用。" else "悬浮窗已关闭。"
+        val ov = overlay ?: return if (on) "错误：悬浮窗不可用。" else "已收成小球。"
+        if (!ov.canDraw()) return "错误：没有悬浮窗权限。去设置开启悬浮窗后再开。"
+        val theme = settings?.current()?.theme ?: "cream"
         return if (on) {
-            if (!ov.canDraw()) {
-                "错误：没有悬浮窗权限。去设置开启悬浮窗后再开。"
-            } else {
-                ov.show(settings?.current()?.theme ?: "cream")
-                "悬浮窗已开启。"
-            }
+            ov.show(theme)
+            "悬浮窗已展开。"
         } else {
-            ov.hide()
-            "悬浮窗已关闭。"
+            ov.collapse(theme)
+            "悬浮窗已收成小球，点一下可打开。"
         }
     }
 

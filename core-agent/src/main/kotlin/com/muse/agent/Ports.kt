@@ -148,7 +148,7 @@ fun museToolDefinitions(): List<ToolDefinition> = listOf(
     ),
     toolSchema(
         name = "float_window",
-        description = "Show or hide the floating CoT window. Use off if the overlay covers the app you are controlling; on to bring Thinking back.",
+        description = "Expand or collapse the floating CoT window. off shrinks it to a small ball; on expands Thinking again.",
         properties = buildJsonObject {
             put("state", buildEnumProp("on shows the overlay, off hides it", listOf("on", "off")))
         },
@@ -267,7 +267,7 @@ Device control:
 5. type_text into the focused field. scroll up/down. keyevent BACK/HOME.
 6. tap/swipe/ui_dump only if snapshot has no useful nodes (custom-drawn UI).
 7. ocr_screen when the tree is empty, custom-drawn, or you need to double-check visible text. It returns text plus tap centers. Prefer ui_snapshot first — OCR is slower. Use OCR to assist judgment, not as the default look.
-8. float_window off if the overlay blocks taps or OCR; float_window on to show Thinking again. The user's setting is updated.
+8. float_window off shrinks the overlay to a ball if it blocks taps; float_window on expands it. The user can tap the ball to reopen.
 Use note_save when the user asks to keep a note.
 Call finish when a multi-step task is complete.
 """

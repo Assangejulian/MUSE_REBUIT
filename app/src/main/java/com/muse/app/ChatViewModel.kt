@@ -245,11 +245,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
             val history = graph.sessions.listMessages(sid).dropLastWhile { it.role == "user" && it.content == text }
             val settings = graph.settings.current()
-            AgentService.start(getApplication())
             val task = settings.taskMode
-            val floating = settings.floatOnTask && task
-            if (floating && graph.overlay.canDraw()) {
-                graph.overlay.show(settings.theme)
+            if (task && graph.overlay.canDraw()) {
+                if (settings.floatOnTask) graph.overlay.show(settings.theme)
+                else graph.overlay.collapse(settings.theme)
                 graph.overlay.update("开始任务…", "Thinking")
                 (getApplication() as MuseApplication).taskHost?.enterTaskMode()
             }
@@ -317,7 +316,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
             } finally {
-                AgentService.stop(getApplication())
                 graph.overlay.hide()
                 (getApplication() as MuseApplication).taskHost?.exitTaskMode()
                 _state.update { it.copy(running = false) }
@@ -329,7 +327,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun stop() {
         runJob?.cancel()
         runJob = null
-        AgentService.stop(getApplication())
         graph.overlay.hide()
         (getApplication() as MuseApplication).taskHost?.exitTaskMode()
         _state.update { current ->

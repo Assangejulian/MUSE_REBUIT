@@ -177,7 +177,7 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                if (overlayReady) "悬浮窗权限：已授予" else "悬浮窗权限：未授予（任务时无法变成浮窗）",
+                if (overlayReady) "关闭时收成小球，点一下可再打开。" else "悬浮窗权限：未授予（任务时无法出浮窗/小球）",
                 color = if (overlayReady) palette.green else palette.peach,
                 fontSize = 13.sp,
             )
