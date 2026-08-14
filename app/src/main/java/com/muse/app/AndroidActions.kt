@@ -14,12 +14,14 @@ import com.muse.agent.UrlGuard
 import com.muse.agent.compactUiDump
 import com.muse.agent.formatOcrHits
 import com.muse.agent.parseDumpBounds
+import com.muse.memory.SettingsStore
 import kotlinx.coroutines.delay
 
 class AndroidActions(
     context: Context,
     private val shizuku: ShizukuGateway,
     private val overlay: CotOverlay? = null,
+    private val settings: SettingsStore? = null,
 ) : ActionPort {
     private val app = context.applicationContext
 
@@ -218,7 +220,23 @@ class AndroidActions(
         } catch (t: Throwable) {
             "错误：OCR 失败：${t.message ?: t::class.java.simpleName}"
         } finally {
-            if (shown) overlay?.show()
+            if (shown) overlay?.show(settings?.current()?.theme ?: "cream")
+        }
+    }
+
+    override suspend fun floatWindow(on: Boolean): String {
+        settings?.update { it.copy(floatOnTask = on) }
+        val ov = overlay ?: return if (on) "错误：悬浮窗不可用。" else "悬浮窗已关闭。"
+        return if (on) {
+            if (!ov.canDraw()) {
+                "错误：没有悬浮窗权限。去设置开启悬浮窗后再开。"
+            } else {
+                ov.show(settings?.current()?.theme ?: "cream")
+                "悬浮窗已开启。"
+            }
+        } else {
+            ov.hide()
+            "悬浮窗已关闭。"
         }
     }
 

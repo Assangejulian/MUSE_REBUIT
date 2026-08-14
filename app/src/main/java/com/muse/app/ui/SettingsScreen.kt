@@ -3,6 +3,8 @@ package com.muse.app.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -156,6 +158,8 @@ fun SettingsScreen(
             SectionLabel("主题")
             ChipRow(
                 options = listOf(
+                    "claude" to "Claude 暖沙",
+                    "claude_dark" to "Claude 暗夜",
                     "cream" to "Cream",
                     "system" to "跟随系统",
                     "mocha" to "Mocha",
@@ -336,6 +340,7 @@ private fun UpdateStatus(update: UpdateState) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ChipRow(
     options: List<Pair<String, String>>,
@@ -343,7 +348,10 @@ private fun ChipRow(
     onSelect: (String) -> Unit,
 ) {
     val palette = LocalPalette.current
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         options.forEach { (value, label) ->
             FilterChip(
                 selected = selected == value,

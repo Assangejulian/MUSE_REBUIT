@@ -23,12 +23,16 @@ class AgentService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL)
-            .setSmallIcon(R.drawable.ic_launcher)
-            .setContentTitle("Muse")
-            .setContentText("Agent 正在运行")
+            .setSmallIcon(R.drawable.ic_stat_muse)
+            .setContentTitle("Muse 任务进行中")
+            .setContentText("点这里回到 Muse，或从通知停下。")
             .setContentIntent(open)
             .setOngoing(true)
             .setSilent(true)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
         startForeground(NOTIFY_ID, notification)
         return START_NOT_STICKY
@@ -37,9 +41,15 @@ class AgentService : Service() {
     private fun ensureChannel() {
         if (Build.VERSION.SDK_INT < 26) return
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        manager.createNotificationChannel(
-            NotificationChannel(CHANNEL, "Agent", NotificationManager.IMPORTANCE_LOW),
-        )
+        val channel = NotificationChannel(
+            CHANNEL,
+            "任务运行",
+            NotificationManager.IMPORTANCE_LOW,
+        ).apply {
+            description = "任务进行中时在状态栏显示标志"
+            setShowBadge(false)
+        }
+        manager.createNotificationChannel(channel)
     }
 
     companion object {

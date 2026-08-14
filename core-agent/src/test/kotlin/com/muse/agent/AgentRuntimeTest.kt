@@ -63,6 +63,7 @@ class FakePorts : MemoryPort, NotePort, DevicePort, HttpPort, SearchPort, Action
     override suspend fun scroll(direction: String): String = "scroll $direction"
     override suspend fun waitMs(ms: Int): String = "wait $ms"
     override suspend fun ocrScreen(): String = "ocr:ok"
+    override suspend fun floatWindow(on: Boolean): String = "float:$on"
 }
 
 class AgentRuntimeTest {
@@ -257,6 +258,7 @@ class AgentRuntimeTest {
         assertTrue(names.contains("shell"))
         assertTrue(names.contains("ui_snapshot"))
         assertTrue(names.contains("ocr_screen"))
+        assertTrue(names.contains("float_window"))
         assertTrue(names.contains("click_node"))
         assertTrue(names.contains("click_text"))
     }

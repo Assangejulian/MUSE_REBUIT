@@ -3,6 +3,7 @@ package com.muse.app
 import android.content.Context
 import android.graphics.PixelFormat
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -30,33 +31,42 @@ class CotOverlay(context: Context) {
 
     fun isShowing(): Boolean = root != null
 
-    fun show() {
+    fun show(theme: String = "cream") {
         main.post {
             if (!canDraw() || root != null) return@post
+            val isClaude = theme.startsWith("claude")
             val density = app.resources.displayMetrics.density
             val pad = (12 * density).toInt()
+
+            val panelBg = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 16f * density
+                setColor(if (isClaude) 0xF61C1A18.toInt() else 0xF211111B.toInt())
+                setStroke((1 * density).toInt(), if (isClaude) 0xFF3D3833.toInt() else 0xFF313244.toInt())
+            }
+
             val panel = LinearLayout(app).apply {
                 orientation = LinearLayout.VERTICAL
-                setBackgroundColor(0xF211111B.toInt())
+                background = panelBg
                 setPadding(pad, pad, pad, pad)
                 elevation = 12 * density
             }
             val title = TextView(app).apply {
                 text = "Muse · Thinking"
-                setTextColor(0xFFCBA6F7.toInt())
+                setTextColor(if (isClaude) 0xFFD97757.toInt() else 0xFFCBA6F7.toInt())
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-                typeface = Typeface.DEFAULT_BOLD
+                typeface = if (isClaude) Typeface.create(Typeface.SERIF, Typeface.BOLD) else Typeface.DEFAULT_BOLD
             }
             val tool = TextView(app).apply {
                 text = "准备中"
-                setTextColor(0xFFA6ADC8.toInt())
+                setTextColor(if (isClaude) 0xFFE5AA5C.toInt() else 0xFFA6ADC8.toInt())
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             }
             val think = TextView(app).apply {
                 text = "…"
-                setTextColor(0xFFCDD6F4.toInt())
+                setTextColor(if (isClaude) 0xFFEDE7DF.toInt() else 0xFFCDD6F4.toInt())
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-                setLineSpacing(0f, 1.15f)
+                setLineSpacing(0f, 1.18f)
             }
             val scroller = ScrollView(app).apply {
                 isFillViewport = true
@@ -68,11 +78,17 @@ class CotOverlay(context: Context) {
                     ),
                 )
             }
+            val stopBg = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 10f * density
+                setColor(if (isClaude) 0xFFD97757.toInt() else 0xFFF38BA8.toInt())
+            }
             val stop = TextView(app).apply {
                 text = "停止"
-                setTextColor(0xFF11111B.toInt())
-                setBackgroundColor(0xFFF38BA8.toInt())
-                setPadding(pad, pad / 2, pad, pad / 2)
+                setTextColor(if (isClaude) 0xFFFFFFFF.toInt() else 0xFF11111B.toInt())
+                background = stopBg
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding((14 * density).toInt(), (6 * density).toInt(), (14 * density).toInt(), (6 * density).toInt())
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
                 setOnClickListener { onStop?.invoke() }
             }

@@ -1,7 +1,10 @@
 package com.muse.app
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
@@ -35,6 +38,8 @@ class MainActivity : ComponentActivity(), TaskHost {
     private val viewModel: ChatViewModel by viewModels()
     private var memoryReplaceOnImport = false
 
+    private val notifPerm = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
     private val memoryImport = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@registerForActivityResult
         lifecycleScope.launch {
@@ -54,7 +59,12 @@ class MainActivity : ComponentActivity(), TaskHost {
         enableEdgeToEdge()
         setContent {
             val state by viewModel.state.collectAsStateWithLifecycle()
+            LaunchedEffect(state.running) {
+                if (state.running) ensureNotifPermission()
+            }
             val themeMode = when (state.settings.theme) {
+                "claude" -> MuseThemeMode.ClaudeLight
+                "claude_dark" -> MuseThemeMode.ClaudeDark
                 "latte" -> MuseThemeMode.Latte
                 "mocha" -> MuseThemeMode.Mocha
                 "system" -> MuseThemeMode.System
@@ -162,6 +172,12 @@ class MainActivity : ComponentActivity(), TaskHost {
 
     override fun exitTaskMode() {
         // User can reopen from notification or recents.
+    }
+
+    private fun ensureNotifPermission() {
+        if (Build.VERSION.SDK_INT < 33) return
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
+        notifPerm.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
     private fun readImportText(uri: Uri): String? {

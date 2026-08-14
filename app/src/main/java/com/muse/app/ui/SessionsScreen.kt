@@ -33,7 +33,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.border
 import com.muse.design.LocalPalette
+import com.muse.design.LocalMuseStyle
 import com.muse.memory.SessionEntity
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -49,6 +51,7 @@ fun SessionsScreen(
     onDelete: (String) -> Unit = {},
 ) {
     val palette = LocalPalette.current
+    val style = LocalMuseStyle.current
     val fmt = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
     var pendingDelete by remember { mutableStateOf<SessionEntity?>(null) }
     Column(
@@ -58,7 +61,14 @@ fun SessionsScreen(
             .statusBarsPadding(),
     ) {
         TopAppBar(
-            title = { Text("Sessions", color = palette.text) },
+            title = {
+                Text(
+                    text = "Sessions",
+                    color = palette.text,
+                    fontFamily = style.brandSerif,
+                    fontWeight = if (style.isClaude) FontWeight.Medium else FontWeight.SemiBold,
+                )
+            },
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回", tint = palette.text)
@@ -78,6 +88,11 @@ fun SessionsScreen(
                             .padding(bottom = 8.dp)
                             .clip(RoundedCornerShape(18.dp))
                             .background(if (selected) palette.surface0 else palette.base)
+                            .then(
+                                if (style.isClaude) {
+                                    Modifier.border(1.dp, palette.surface1.copy(alpha = 0.7f), RoundedCornerShape(18.dp))
+                                } else Modifier,
+                            )
                             .clickable { onOpen(session.id) }
                             .padding(start = 14.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,

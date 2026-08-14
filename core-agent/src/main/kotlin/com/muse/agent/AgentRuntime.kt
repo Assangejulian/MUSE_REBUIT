@@ -210,6 +210,14 @@ class AgentRuntime(
                     "ui_status" -> actions.uiStatus()
                     "ui_snapshot" -> actions.uiSnapshot()
                     "ocr_screen" -> actions.ocrScreen()
+                    "float_window" -> {
+                        val state = args.string("state").lowercase()
+                        when (state) {
+                            "on", "true", "1", "show" -> actions.floatWindow(true)
+                            "off", "false", "0", "hide" -> actions.floatWindow(false)
+                            else -> "错误：state 用 on 或 off。"
+                        }
+                    }
                     "find_nodes" -> {
                         val query = args.string("query")
                         if (query.isBlank()) "错误：query 不能为空。" else actions.findNodes(query)

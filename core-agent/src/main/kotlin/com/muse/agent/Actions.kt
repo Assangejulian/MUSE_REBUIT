@@ -19,4 +19,5 @@ interface ActionPort {
     suspend fun scroll(direction: String): String
     suspend fun waitMs(ms: Int): String
     suspend fun ocrScreen(): String
+    suspend fun floatWindow(on: Boolean): String
 }

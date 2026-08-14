@@ -249,7 +249,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val task = settings.taskMode
             val floating = settings.floatOnTask && task
             if (floating && graph.overlay.canDraw()) {
-                graph.overlay.show()
+                graph.overlay.show(settings.theme)
                 graph.overlay.update("开始任务…", "Thinking")
                 (getApplication() as MuseApplication).taskHost?.enterTaskMode()
             }

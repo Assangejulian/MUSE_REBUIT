@@ -69,6 +69,7 @@ import com.muse.app.UiMessage
 import com.muse.app.UiTool
 import com.muse.design.CatppuccinPalette
 import com.muse.design.LocalPalette
+import com.muse.design.LocalMuseStyle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,6 +88,7 @@ fun ChatScreen(
     onImportMemory: () -> Unit = {},
 ) {
     val palette = LocalPalette.current
+    val style = LocalMuseStyle.current
     val listState = rememberLazyListState()
     var toolsOpen by remember { mutableStateOf(false) }
     LaunchedEffect(state.messages.size, state.messages.lastOrNull()?.content, state.messages.lastOrNull()?.thinking) {
@@ -113,7 +115,14 @@ fun ChatScreen(
                 Icon(Icons.Outlined.Forum, contentDescription = "Sessions", tint = palette.text)
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text("Muse", color = palette.text, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                Text(
+                    text = "Muse",
+                    color = palette.text,
+                    fontWeight = if (style.isClaude) FontWeight.Medium else FontWeight.SemiBold,
+                    fontFamily = style.brandSerif,
+                    fontSize = if (style.isClaude) 20.sp else 18.sp,
+                    letterSpacing = if (style.isClaude) 0.6.sp else 0.sp,
+                )
                 Text(
                     state.session?.title ?: "新对话",
                     color = palette.subtext0,
@@ -213,6 +222,7 @@ fun ChatScreen(
 @Composable
 private fun ModeChip(task: Boolean, onClick: () -> Unit) {
     val palette = LocalPalette.current
+    val style = LocalMuseStyle.current
     Text(
         text = if (task) "任务" else "聊天",
         color = if (task) palette.base else palette.mauve,
@@ -221,6 +231,11 @@ private fun ModeChip(task: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
             .background(if (task) palette.mauve else palette.base)
+            .then(
+                if (!task && style.isClaude) {
+                    Modifier.border(1.dp, palette.surface1, RoundedCornerShape(999.dp))
+                } else Modifier,
+            )
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 6.dp),
     )
@@ -229,15 +244,21 @@ private fun ModeChip(task: Boolean, onClick: () -> Unit) {
 @Composable
 private fun ModelChip(label: String, onClick: () -> Unit) {
     val palette = LocalPalette.current
+    val style = LocalMuseStyle.current
     Text(
         text = label,
-        color = palette.lavender,
+        color = if (style.isClaude) palette.mauve else palette.lavender,
         fontSize = 12.sp,
         fontWeight = FontWeight.Medium,
         modifier = Modifier
             .padding(start = 6.dp)
             .clip(RoundedCornerShape(999.dp))
             .background(palette.base)
+            .then(
+                if (style.isClaude) {
+                    Modifier.border(1.dp, palette.surface1, RoundedCornerShape(999.dp))
+                } else Modifier,
+            )
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 6.dp),
     )
@@ -253,6 +274,7 @@ private fun ComposerBar(
     onStop: () -> Unit,
 ) {
     val palette = LocalPalette.current
+    val style = LocalMuseStyle.current
     val canSend = value.isNotBlank() && !running
     Row(
         modifier = Modifier
@@ -260,7 +282,7 @@ private fun ComposerBar(
             .padding(horizontal = 12.dp, vertical = 10.dp)
             .clip(RoundedCornerShape(26.dp))
             .background(palette.base)
-            .border(1.dp, palette.surface0, RoundedCornerShape(26.dp))
+            .border(1.dp, if (style.isClaude) palette.surface1 else palette.surface0, RoundedCornerShape(26.dp))
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.Bottom,
     ) {
@@ -296,7 +318,17 @@ private fun ComposerBar(
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(if (running || canSend) palette.mauve else palette.surface0)
+                .then(
+                    if (running || canSend) {
+                        if (style.isClaude) {
+                            Modifier.background(style.accentGradient)
+                        } else {
+                            Modifier.background(palette.mauve)
+                        }
+                    } else {
+                        Modifier.background(palette.surface0)
+                    },
+                )
                 .clickable(enabled = running || canSend) {
                     if (running) onStop() else onSend()
                 },
@@ -400,6 +432,7 @@ private fun sheetChipColors(palette: CatppuccinPalette, selected: Boolean) =
 @Composable
 private fun MessageBubble(message: UiMessage) {
     val palette = LocalPalette.current
+    val style = LocalMuseStyle.current
     val context = LocalContext.current
     val mine = message.role == "user"
     Row(
@@ -411,6 +444,11 @@ private fun MessageBubble(message: UiMessage) {
                 .widthIn(max = 360.dp)
                 .clip(RoundedCornerShape(if (mine) 20.dp else 22.dp))
                 .background(if (mine) palette.surface0 else palette.base)
+                .then(
+                    if (!mine && style.isClaude) {
+                        Modifier.border(1.dp, palette.surface1.copy(alpha = 0.6f), RoundedCornerShape(22.dp))
+                    } else Modifier,
+                )
                 .then(
                     if (!mine && message.content.isNotBlank()) {
                         Modifier.combinedClickable(
@@ -462,6 +500,7 @@ private fun MessageBubble(message: UiMessage) {
 @Composable
 private fun ThinkingBlock(text: String, live: Boolean) {
     val palette = LocalPalette.current
+    val style = LocalMuseStyle.current
     var expanded by remember { mutableStateOf(live) }
     LaunchedEffect(live) { if (live) expanded = true }
     Column(
@@ -469,14 +508,20 @@ private fun ThinkingBlock(text: String, live: Boolean) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .background(palette.mantle)
+            .then(
+                if (style.isClaude) {
+                    Modifier.border(1.dp, palette.surface1, RoundedCornerShape(14.dp))
+                } else Modifier,
+            )
             .clickable { expanded = !expanded }
             .padding(10.dp),
     ) {
         Text(
-            if (live) "正在思考" else "思考过程",
-            color = palette.lavender,
+            text = if (live) "正在思考…" else (if (style.isClaude) "Claude Thinking · 思考过程" else "思考过程"),
+            color = if (style.isClaude) palette.mauve else palette.lavender,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
+            letterSpacing = if (style.isClaude) 0.3.sp else 0.sp,
         )
         AnimatedVisibility(expanded) {
             Text(
@@ -492,6 +537,7 @@ private fun ThinkingBlock(text: String, live: Boolean) {
 
 @Composable
 private fun ToolChip(tool: UiTool, palette: CatppuccinPalette) {
+    val style = LocalMuseStyle.current
     val color = when {
         !tool.done -> palette.peach
         tool.ok -> palette.green
@@ -503,6 +549,11 @@ private fun ToolChip(tool: UiTool, palette: CatppuccinPalette) {
             .padding(bottom = 6.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(palette.mantle)
+            .then(
+                if (style.isClaude) {
+                    Modifier.border(1.dp, palette.surface1.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
+                } else Modifier,
+            )
             .padding(8.dp),
     ) {
         Text(

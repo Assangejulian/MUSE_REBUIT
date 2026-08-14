@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muse.design.LocalPalette
+import com.muse.design.LocalMuseStyle
 import com.muse.llm.DEFAULT_BASE_URL
 import com.muse.llm.MODEL_FLASH
 import com.muse.llm.MODEL_PRO
@@ -34,6 +35,7 @@ import com.muse.llm.MODEL_PRO
 @Composable
 fun OnboardingScreen(onContinue: (apiKey: String, model: String, baseUrl: String) -> Unit) {
     val palette = LocalPalette.current
+    val style = LocalMuseStyle.current
     var apiKey by rememberSaveable { mutableStateOf("") }
     var baseUrl by rememberSaveable { mutableStateOf(DEFAULT_BASE_URL) }
     var model by rememberSaveable { mutableStateOf(MODEL_FLASH) }
@@ -47,7 +49,14 @@ fun OnboardingScreen(onContinue: (apiKey: String, model: String, baseUrl: String
             .padding(24.dp),
         verticalArrangement = Arrangement.Center,
     ) {
-        Text("Muse", color = palette.mauve, fontSize = 36.sp, fontWeight = FontWeight.SemiBold)
+        Text(
+            text = "Muse",
+            color = palette.mauve,
+            fontSize = if (style.isClaude) 40.sp else 36.sp,
+            fontFamily = style.brandSerif,
+            fontWeight = if (style.isClaude) FontWeight.Medium else FontWeight.SemiBold,
+            letterSpacing = if (style.isClaude) 0.6.sp else 0.sp,
+        )
         Text("暖色、慢慢来。", color = palette.subtext0, fontSize = 15.sp)
         Spacer(Modifier.height(8.dp))
         Text(

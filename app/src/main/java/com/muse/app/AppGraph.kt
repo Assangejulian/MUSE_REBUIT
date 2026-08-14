@@ -38,7 +38,7 @@ class AppGraph(context: Context) {
     val search = WebSearcher(okHttp)
     val shizuku = ShizukuGateway(app)
     val overlay = CotOverlay(app)
-    val actions = AndroidActions(app, shizuku, overlay)
+    val actions = AndroidActions(app, shizuku, overlay, settings)
     val memoryPort = object : MemoryPort {
         override suspend fun read(): String = memoryFiles.read()
         override suspend fun write(op: String, text: String): String = memoryFiles.write(op, text)

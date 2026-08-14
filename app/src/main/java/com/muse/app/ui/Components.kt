@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muse.design.LocalPalette
+import com.muse.design.LocalMuseStyle
 import com.muse.design.MuseRadius
 
 @Composable
@@ -35,6 +36,7 @@ fun MuseField(
     enabled: Boolean = true,
 ) {
     val palette = LocalPalette.current
+    val style = LocalMuseStyle.current
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
@@ -52,7 +54,11 @@ fun MuseField(
                 modifier = Modifier
                     .clip(RoundedCornerShape(MuseRadius))
                     .background(palette.base)
-                    .border(1.dp, palette.surface1, RoundedCornerShape(MuseRadius))
+                    .border(
+                        1.dp,
+                        if (style.isClaude) palette.surface1.copy(alpha = 0.85f) else palette.surface1,
+                        RoundedCornerShape(MuseRadius),
+                    )
                     .heightIn(min = 48.dp, max = 140.dp)
                     .padding(horizontal = 14.dp, vertical = 12.dp),
             ) {
@@ -68,12 +74,13 @@ fun MuseField(
 @Composable
 fun SectionLabel(text: String) {
     val palette = LocalPalette.current
+    val style = LocalMuseStyle.current
     Text(
         text = text,
-        color = palette.subtext0,
+        color = if (style.isClaude) palette.mauve.copy(alpha = 0.85f) else palette.subtext0,
         fontSize = 12.sp,
-        fontWeight = FontWeight.Medium,
-        letterSpacing = 0.4.sp,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = if (style.isClaude) 0.6.sp else 0.4.sp,
         modifier = Modifier.padding(bottom = 6.dp),
     )
 }
@@ -81,15 +88,23 @@ fun SectionLabel(text: String) {
 @Composable
 fun EmptyHint(title: String, body: String) {
     val palette = LocalPalette.current
+    val style = LocalMuseStyle.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 28.dp),
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(title, color = palette.text, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(8.dp))
-        Text(body, color = palette.subtext0, fontSize = 15.sp, lineHeight = 22.sp)
+        Text(
+            text = title,
+            color = palette.text,
+            fontSize = if (style.isClaude) 26.sp else 22.sp,
+            fontWeight = if (style.isClaude) FontWeight.Medium else FontWeight.SemiBold,
+            fontFamily = style.brandSerif,
+            letterSpacing = if (style.isClaude) 0.5.sp else 0.sp,
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(body, color = palette.subtext0, fontSize = 15.sp, lineHeight = 23.sp)
     }
 }
 

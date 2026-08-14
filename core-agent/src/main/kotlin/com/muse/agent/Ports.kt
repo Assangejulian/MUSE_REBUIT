@@ -57,6 +57,7 @@ fun museToolChoices(): List<ToolChoice> = listOf(
     ToolChoice("open_app", "打开应用"),
     ToolChoice("ui_snapshot", "看当前界面"),
     ToolChoice("ocr_screen", "屏幕 OCR"),
+    ToolChoice("float_window", "悬浮窗"),
     ToolChoice("click_text", "点文字"),
     ToolChoice("click_node", "点节点"),
     ToolChoice("type_text", "输入文字"),
@@ -144,6 +145,14 @@ fun museToolDefinitions(): List<ToolDefinition> = listOf(
     toolSchema(
         name = "ocr_screen",
         description = "OCR the current screen and return visible text with tap centers. Use when the accessibility tree is empty, custom-drawn, or you need to confirm what the user can see. Then tap those coordinates or click_text.",
+    ),
+    toolSchema(
+        name = "float_window",
+        description = "Show or hide the floating CoT window. Use off if the overlay covers the app you are controlling; on to bring Thinking back.",
+        properties = buildJsonObject {
+            put("state", buildEnumProp("on shows the overlay, off hides it", listOf("on", "off")))
+        },
+        required = listOf("state"),
     ),
     toolSchema(
         name = "find_nodes",
@@ -258,6 +267,7 @@ Device control:
 5. type_text into the focused field. scroll up/down. keyevent BACK/HOME.
 6. tap/swipe/ui_dump only if snapshot has no useful nodes (custom-drawn UI).
 7. ocr_screen when the tree is empty, custom-drawn, or you need to double-check visible text. It returns text plus tap centers. Prefer ui_snapshot first — OCR is slower. Use OCR to assist judgment, not as the default look.
+8. float_window off if the overlay blocks taps or OCR; float_window on to show Thinking again. The user's setting is updated.
 Use note_save when the user asks to keep a note.
 Call finish when a multi-step task is complete.
 """

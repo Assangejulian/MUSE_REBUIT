@@ -19,7 +19,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.clip
 import com.muse.design.LocalPalette
+import com.muse.design.LocalMuseStyle
 
 internal sealed class MdBlock {
     data class Heading(val level: Int, val text: String) : MdBlock()
@@ -164,6 +171,7 @@ fun MarkdownText(
     error: Boolean = false,
 ) {
     val palette = LocalPalette.current
+    val style = LocalMuseStyle.current
     val blocks = remember(text) { parseMarkdown(text) }
     val color = if (error) palette.red else palette.text
     SelectionContainer {
@@ -178,7 +186,9 @@ fun MarkdownText(
                             2 -> 19.sp
                             else -> 17.sp
                         },
-                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = style.brandSerif,
+                        fontWeight = if (style.isClaude) FontWeight.Medium else FontWeight.SemiBold,
+                        letterSpacing = if (style.isClaude) 0.3.sp else 0.sp,
                         lineHeight = 26.sp,
                         modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
                     )
@@ -224,17 +234,38 @@ fun MarkdownText(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 8.dp)
-                            .background(palette.mantle, RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(palette.mantle)
+                            .then(
+                                if (style.isClaude) {
+                                    Modifier.border(1.dp, palette.surface1, RoundedCornerShape(12.dp))
+                                } else Modifier,
+                            )
                             .padding(10.dp),
                     )
-                    is MdBlock.Quote -> Text(
-                        text = inlineMarkdown(block.text),
-                        color = palette.subtext0,
-                        fontSize = 15.sp,
-                        lineHeight = 22.sp,
-                        fontStyle = FontStyle.Italic,
-                        modifier = Modifier.padding(start = 8.dp, bottom = 6.dp),
-                    )
+                    is MdBlock.Quote -> {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 6.dp),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .width(3.dp)
+                                    .height(20.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(if (style.isClaude) palette.mauve else palette.lavender),
+                            )
+                            Text(
+                                text = inlineMarkdown(block.text),
+                                color = palette.subtext0,
+                                fontSize = 15.sp,
+                                lineHeight = 22.sp,
+                                fontStyle = FontStyle.Italic,
+                                modifier = Modifier.padding(start = 8.dp),
+                            )
+                        }
+                    }
                     MdBlock.Rule -> androidx.compose.material3.HorizontalDivider(
                         modifier = Modifier.padding(vertical = 8.dp),
                         color = palette.surface1,
