@@ -41,10 +41,11 @@ class ScheduleHost(
             }
             if (job.nextAt in 1 until now - GRACE_MS) {
                 val next = nextAfterRun(job.repeat, job.hour, job.minute)
+                val stamp = System.currentTimeMillis()
                 val updated = if (next == null) {
-                    job.copy(enabled = false, lastStatus = "错过（$GRACE_LABEL 内未执行）")
+                    job.copy(enabled = false, lastRunAt = stamp, lastStatus = "错过（$GRACE_LABEL 内未执行）")
                 } else {
-                    job.copy(nextAt = next, lastStatus = "错过上一档，已改到 ${formatScheduleInstant(next)}")
+                    job.copy(nextAt = next, lastRunAt = stamp, lastStatus = "错过上一档，已改到 ${formatScheduleInstant(next)}")
                 }
                 graph.schedules.upsert(updated)
                 graph.alarms.set(updated)
@@ -64,10 +65,11 @@ class ScheduleHost(
         }
         if (now - job.nextAt > GRACE_MS) {
             val next = nextAfterRun(job.repeat, job.hour, job.minute)
+            val stamp = System.currentTimeMillis()
             val updated = if (next == null) {
-                job.copy(enabled = false, lastStatus = "错过（太晚）")
+                job.copy(enabled = false, lastRunAt = stamp, lastStatus = "错过（太晚）")
             } else {
-                job.copy(nextAt = next, lastStatus = "错过上一档，已改到 ${formatScheduleInstant(next)}")
+                job.copy(nextAt = next, lastRunAt = stamp, lastStatus = "错过上一档，已改到 ${formatScheduleInstant(next)}")
             }
             graph.schedules.upsert(updated)
             graph.alarms.set(updated)
@@ -95,6 +97,8 @@ class ScheduleHost(
                 append(job.prompt)
             }
             graph.sessions.saveMessage(session.id, ChatMessage(role = "user", content = userText))
+            val health = graph.actions.deviceHealth()
+            graph.sessions.saveMessage(session.id, ChatMessage(role = "system", content = "[device_health]\n$health"))
             val task = job.mode != "chat"
             if (task && graph.overlay.canDraw()) {
                 if (settings.floatOnTask) graph.overlay.show(settings.theme)
@@ -114,6 +118,7 @@ class ScheduleHost(
                         thinkingEnabled = settings.thinkingEnabled,
                         maxTokens = settings.maxTokens,
                         toolNames = if (task) null else emptyList(),
+                        healthText = health,
                     ),
                 ).collect { event ->
                     when (event) {
@@ -126,7 +131,7 @@ class ScheduleHost(
                         else -> Unit
                     }
                 }
-                advance(job, "已执行")
+                advance(job, "已执行", session.id)
             } finally {
                 graph.overlay.hide()
                 (app as? MuseApplication)?.taskHost?.exitTaskMode()
@@ -138,19 +143,21 @@ class ScheduleHost(
         }
     }
 
-    private suspend fun advance(job: ScheduleEntity, status: String) {
+    private suspend fun advance(job: ScheduleEntity, status: String, sessionId: String = job.lastSessionId) {
         val next = nextAfterRun(job.repeat, job.hour, job.minute)
         val updated = if (next == null) {
             job.copy(
                 enabled = false,
                 lastRunAt = System.currentTimeMillis(),
                 lastStatus = status,
+                lastSessionId = sessionId,
             )
         } else {
             job.copy(
                 nextAt = next,
                 lastRunAt = System.currentTimeMillis(),
                 lastStatus = status,
+                lastSessionId = sessionId,
             )
         }
         graph.schedules.upsert(updated)

@@ -73,6 +73,8 @@ class FakePorts : MemoryPort, NotePort, DevicePort, HttpPort, SearchPort, Action
     ): String = "sched:$title"
     override suspend fun scheduleList(): String = "(empty)"
     override suspend fun scheduleCancel(id: String): String = "cancel:$id"
+    override suspend fun waitFor(text: String, pkg: String, minNodes: Int, ms: Int): String = "wait_for"
+    override fun deviceHealth(): String = "health=ok"
 }
 
 class AgentRuntimeTest {
@@ -271,6 +273,7 @@ class AgentRuntimeTest {
         assertTrue(names.contains("schedule_task"))
         assertTrue(names.contains("schedule_list"))
         assertTrue(names.contains("schedule_cancel"))
+        assertTrue(names.contains("wait_for"))
         assertTrue(names.contains("click_node"))
         assertTrue(names.contains("click_text"))
     }

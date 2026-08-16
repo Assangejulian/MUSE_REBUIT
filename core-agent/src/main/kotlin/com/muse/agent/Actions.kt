@@ -23,4 +23,6 @@ interface ActionPort {
     suspend fun scheduleCreate(title: String, prompt: String, mode: String, `when`: String, repeat: String): String
     suspend fun scheduleList(): String
     suspend fun scheduleCancel(id: String): String
+    suspend fun waitFor(text: String, pkg: String, minNodes: Int, ms: Int): String
+    fun deviceHealth(): String
 }

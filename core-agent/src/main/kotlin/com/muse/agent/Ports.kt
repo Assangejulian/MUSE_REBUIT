@@ -19,6 +19,7 @@ val OBSERVE_TOOLS = setOf(
     "memory_read",
     "ocr_screen",
     "schedule_list",
+    "wait_for",
 )
 
 interface MemoryPort {
@@ -66,6 +67,7 @@ fun museToolChoices(): List<ToolChoice> = listOf(
     ToolChoice("click_node", "点节点"),
     ToolChoice("type_text", "输入文字"),
     ToolChoice("scroll", "滑动"),
+    ToolChoice("wait_for", "等到出现"),
     ToolChoice("device_status", "电量与时间"),
     ToolChoice("memory_read", "读 memory"),
     ToolChoice("memory_write", "写 memory"),
@@ -211,8 +213,18 @@ fun museToolDefinitions(): List<ToolDefinition> = listOf(
         required = listOf("direction"),
     ),
     toolSchema(
+        name = "wait_for",
+        description = "Wait until visible text appears, the foreground package contains a string, or enough nodes show up. Prefer this over blind wait. Returns a fresh snapshot.",
+        properties = buildJsonObject {
+            put("text", buildJsonObject { put("type", "string"); put("description", "Substring to wait for on screen") })
+            put("pkg", buildJsonObject { put("type", "string"); put("description", "Foreground package should contain this") })
+            put("min_nodes", buildJsonObject { put("type", "integer"); put("description", "Minimum visible nodes") })
+            put("ms", buildJsonObject { put("type", "integer"); put("description", "Timeout 300-15000, default 4000") })
+        },
+    ),
+    toolSchema(
         name = "wait",
-        description = "Wait for the UI to settle, in milliseconds (200-4000).",
+        description = "Wait for the UI to settle, in milliseconds (200-4000). Prefer wait_for when you know what should appear.",
         properties = buildJsonObject {
             put("ms", buildJsonObject { put("type", "integer"); put("description", "Milliseconds") })
         },
@@ -295,8 +307,8 @@ Device control:
 1. ui_status if unsure. Prefer Accessibility over Shizuku tap.
 2. open_app to leave Muse
 3. ui_snapshot to see nodes (n1, n2…). Do not invent ids.
-4. click_node or click_text. The Tool result already includes a fresh snapshot — use those new ids. Do not immediately ui_snapshot again unless the tree looks stale.
-5. type_text into the focused field. scroll up/down. keyevent BACK/HOME.
+4. click_node or click_text. The Tool result already includes a fresh snapshot — use those new ids. If it says 界面未变化, the click did not land.
+5. type_text into the focused field. scroll up/down. keyevent BACK/HOME. Use wait_for when waiting for text/package/nodes instead of blind wait.
 6. tap/swipe/ui_dump only if snapshot has no useful nodes (custom-drawn UI).
 7. ocr_screen when the tree is empty, custom-drawn, or you need to double-check visible text. It returns text plus tap centers. Prefer ui_snapshot first — OCR is slower. Use OCR to assist judgment, not as the default look.
 8. float_window: on = panel, ball = bubble, off = hide. User can also tap the ball to open, long-press to close. Use off if it blocks taps.

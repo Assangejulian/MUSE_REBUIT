@@ -91,6 +91,15 @@ fun findInSnapshot(snapshot: UiSnapshot, query: String): List<UiNode> {
     }
 }
 
+fun evidenceLine(snapshot: UiSnapshot, note: String): String = buildString {
+    append(note)
+    append(" pkg=").append(snapshot.pkg.ifBlank { "?" })
+    if (snapshot.title.isNotBlank()) append(" title=").append(snapshot.title.take(40))
+    append(" nodes=").append(snapshot.nodes.size)
+    append('\n')
+    append(formatSnapshot(snapshot, limit = 16))
+}
+
 fun sameScreen(a: UiSnapshot, b: UiSnapshot): Boolean {
     if (a.pkg != b.pkg) return false
     if (a.title != b.title) return false

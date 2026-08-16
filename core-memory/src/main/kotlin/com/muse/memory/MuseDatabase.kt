@@ -58,6 +58,7 @@ data class ScheduleEntity(
     val enabled: Boolean,
     val lastRunAt: Long,
     val lastStatus: String,
+    val lastSessionId: String = "",
     val createdAt: Long,
 )
 
@@ -132,7 +133,7 @@ interface ScheduleDao {
 
 @Database(
     entities = [SessionEntity::class, MessageEntity::class, NoteEntity::class, ScheduleEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class MuseDatabase : RoomDatabase() {
@@ -172,9 +173,15 @@ abstract class MuseDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE schedules ADD COLUMN lastSessionId TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         fun create(context: Context): MuseDatabase =
             Room.databaseBuilder(context, MuseDatabase::class.java, "muse.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
     }
 }

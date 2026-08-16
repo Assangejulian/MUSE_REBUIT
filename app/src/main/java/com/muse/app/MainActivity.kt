@@ -91,6 +91,9 @@ class MainActivity : ComponentActivity(), TaskHost {
                                 },
                                 onOpenSchedules = { nav.navigate("schedules") },
                                 onShowBall = viewModel::showBall,
+                                onOpenReceipt = { id ->
+                                    viewModel.openSession(id)
+                                },
                             )
                         }
                         composable("sessions") {

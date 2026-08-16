@@ -146,7 +146,13 @@ class MuseAccessibilityService : AccessibilityService() {
         delay(180)
         val after = snapshot()
         val how = if (tapped.startsWith("错误")) "a11y" else "gesture (${resolved.x},${resolved.y})"
-        return "已点击 ${node.id}「${node.label()}」via $how\n---\n${formatSnapshot(after)}"
+        val changed = !sameScreen(before, after)
+        val note = if (changed) {
+            "已点击 ${node.id}「${node.label()}」via $how"
+        } else {
+            "界面未变化。已点 ${node.id}「${node.label()}」via $how，屏幕没动。"
+        }
+        return com.muse.agent.evidenceLine(after, note)
     }
 
     private data class ResolvedClick(val actionNode: AccessibilityNodeInfo?, val x: Int, val y: Int)

@@ -14,6 +14,7 @@ import com.muse.agent.UrlGuard
 import com.muse.agent.compactUiDump
 import com.muse.agent.formatOcrHits
 import com.muse.agent.formatScheduleInstant
+import com.muse.agent.formatSnapshot
 import com.muse.agent.parseDumpBounds
 import com.muse.agent.parseScheduleWhen
 import com.muse.memory.ScheduleEntity
@@ -212,6 +213,53 @@ class AndroidActions(
     override suspend fun waitMs(ms: Int): String {
         delay(ms.toLong())
         return withFreshTree("已等待 ${ms}ms", 0)
+    }
+
+    override fun deviceHealth(): String = buildString {
+        val a11yOn = MuseAccessibilityService.enabled(app)
+        val a11yLive = MuseAccessibilityService.instance != null
+        append("accessibility_enabled=").append(a11yOn).append('\n')
+        append("accessibility_live=").append(a11yLive).append('\n')
+        if (a11yOn && !a11yLive) append("hint=无障碍已开但服务未连上，去设置里开关一次 Muse。\n")
+        if (!a11yOn) append("hint=要点屏幕请先开无障碍。\n")
+        append("overlay=").append(overlay?.canDraw() == true).append('\n')
+        append("exact_alarm=").append(alarms?.canExact() != false).append('\n')
+        append(shizuku.statusLine())
+    }
+
+    override suspend fun waitFor(text: String, pkg: String, minNodes: Int, ms: Int): String {
+        val deadline = System.currentTimeMillis() + ms.toLong()
+        var last = ""
+        val needText = text.isNotBlank()
+        val needPkg = pkg.isNotBlank()
+        val needNodes = minNodes > 0
+        if (!needText && !needPkg && !needNodes) {
+            delay(ms.toLong().coerceAtMost(4000))
+            return withFreshTree("已等待 ${ms}ms", 0)
+        }
+        while (true) {
+            val snap = a11y()?.snapshot()
+            if (snap != null) {
+                last = formatSnapshot(snap)
+                val hay = buildString {
+                    append(snap.pkg).append(' ').append(snap.title).append(' ')
+                    snap.nodes.forEach { append(it.text).append(' ').append(it.desc).append(' ') }
+                }
+                val ok = (!needText || hay.contains(text, ignoreCase = true)) &&
+                    (!needPkg || snap.pkg.contains(pkg, ignoreCase = true)) &&
+                    (!needNodes || snap.nodes.size >= minNodes)
+                if (ok) return "已等到。\n---\n$last"
+            } else {
+                last = uiSnapshot()
+                val ok = (!needText || last.contains(text, ignoreCase = true)) &&
+                    (!needPkg || last.contains(pkg, ignoreCase = true))
+                if (ok && !needNodes) return "已等到。\n---\n$last"
+            }
+            if (System.currentTimeMillis() >= deadline) {
+                return "超时未等到 text=$text pkg=$pkg min_nodes=$minNodes。\n---\n$last"
+            }
+            delay(300)
+        }
     }
 
     override suspend fun ocrScreen(): String {

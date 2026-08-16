@@ -74,6 +74,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muse.agent.museToolChoices
 import com.muse.app.ChatUiState
+import com.muse.app.ScheduleReceipt
 import com.muse.app.UiMessage
 import com.muse.app.UiTool
 import com.muse.design.CatppuccinPalette
@@ -97,6 +98,7 @@ fun ChatScreen(
     onImportMemory: () -> Unit = {},
     onOpenSchedules: () -> Unit = {},
     onShowBall: () -> Unit = {},
+    onOpenReceipt: (String) -> Unit = {},
 ) {
     val palette = LocalPalette.current
     val style = LocalMuseStyle.current
@@ -172,6 +174,12 @@ fun ChatScreen(
             IconButton(onClick = onOpenSettings) {
                 Icon(Icons.Outlined.Settings, contentDescription = "设置", tint = palette.text)
             }
+        }
+
+        state.scheduleReceipt?.let { receipt ->
+            ReceiptBanner(receipt, onOpen = {
+                if (receipt.sessionId.isNotBlank()) onOpenReceipt(receipt.sessionId)
+            })
         }
 
         if (state.updateNotice != null) {
@@ -262,6 +270,25 @@ fun ChatScreen(
             },
         )
     }
+}
+
+@Composable
+private fun ReceiptBanner(receipt: ScheduleReceipt, onOpen: () -> Unit) {
+    val palette = LocalPalette.current
+    val missed = receipt.status.contains("错过") || receipt.status.contains("失败")
+    Text(
+        text = "定时「${receipt.title}」${receipt.status}" + if (receipt.sessionId.isNotBlank()) "  ·  点开 Session" else "",
+        color = palette.base,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Medium,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (missed) palette.peach else palette.green)
+            .clickable(onClick = onOpen)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    )
 }
 
 @Composable
@@ -528,7 +555,7 @@ private fun MessageBubble(message: UiMessage) {
                     } else Modifier,
                 )
                 .then(
-                    if (!mine && message.content.isNotBlank()) {
+                    if (!mine && message.role != "system" && message.content.isNotBlank()) {
                         Modifier.combinedClickable(
                             onClick = {},
                             onLongClick = { copyText(context, message.content) },
@@ -539,6 +566,14 @@ private fun MessageBubble(message: UiMessage) {
                 )
                 .padding(14.dp),
         ) {
+            if (message.role == "system") {
+                Text(
+                    text = message.content.removePrefix("[device_health]\n").trim(),
+                    color = palette.subtext0,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                )
+            }
             if (!mine && message.thinking.isNotBlank()) {
                 ThinkingBlock(message.thinking, message.streaming && message.content.isEmpty())
                 Spacer(Modifier.height(8.dp))
@@ -547,16 +582,16 @@ private fun MessageBubble(message: UiMessage) {
                 message.tools.forEach { ToolChip(it, palette) }
                 Spacer(Modifier.height(8.dp))
             }
-            if (message.content.isNotBlank()) {
+            if (message.role != "system" && message.content.isNotBlank()) {
                 if (mine) {
                     Text(message.content, color = palette.text, fontSize = 16.sp, lineHeight = 24.sp)
                 } else {
                     MarkdownText(message.content, error = message.error)
                 }
-            } else if (message.streaming && message.thinking.isBlank()) {
+            } else if (message.role != "system" && message.streaming && message.thinking.isBlank()) {
                 Text("正在连接 Model…", color = palette.overlay1, fontSize = 14.sp)
             }
-            if (!mine && message.content.isNotBlank() && !message.streaming) {
+            if (!mine && message.role != "system" && message.content.isNotBlank() && !message.streaming) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                     horizontalArrangement = Arrangement.End,

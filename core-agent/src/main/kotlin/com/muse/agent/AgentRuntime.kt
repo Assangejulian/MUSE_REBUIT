@@ -26,6 +26,7 @@ data class AgentConfig(
     val thinkingEnabled: Boolean,
     val maxTokens: Int,
     val toolNames: List<String>? = null,
+    val healthText: String? = null,
 )
 
 sealed class AgentEvent {
@@ -64,6 +65,9 @@ class AgentRuntime(
                 "[memory.md]\n$memoryText"
             },
         )
+        if (!config.healthText.isNullOrBlank()) {
+            messages += ChatMessage(role = "system", content = "[device_health]\n${config.healthText}")
+        }
         messages += history.filter { it.role != "system" }
         messages += ChatMessage(role = "user", content = userText)
 
@@ -239,6 +243,12 @@ class AgentRuntime(
                         if (text.isBlank()) "错误：text 不能为空。" else actions.clickText(text)
                     }
                     "scroll" -> actions.scroll(args.string("direction").ifBlank { "down" })
+                    "wait_for" -> actions.waitFor(
+                        text = args.string("text"),
+                        pkg = args.string("pkg"),
+                        minNodes = args.int("min_nodes") ?: 0,
+                        ms = (args.int("ms") ?: 4000).coerceIn(300, 15_000),
+                    )
                     "wait" -> actions.waitMs((args.int("ms") ?: 800).coerceIn(200, 4000))
                     "shizuku_status" -> actions.shizukuStatus()
                     "ui_dump" -> actions.uiDump()

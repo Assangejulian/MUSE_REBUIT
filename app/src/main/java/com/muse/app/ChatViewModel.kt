@@ -40,6 +40,13 @@ data class UiMessage(
     val error: Boolean = false,
 )
 
+data class ScheduleReceipt(
+    val title: String,
+    val status: String,
+    val sessionId: String,
+    val at: Long,
+)
+
 data class ChatUiState(
     val ready: Boolean = false,
     val hasKey: Boolean = false,
@@ -58,6 +65,7 @@ data class ChatUiState(
     val extraTools: Set<String> = emptySet(),
     val schedules: List<ScheduleEntity> = emptyList(),
     val exactAlarm: Boolean = true,
+    val scheduleReceipt: ScheduleReceipt? = null,
 )
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -91,7 +99,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { UiSafety.load(graph.blocklist.read()) }
         viewModelScope.launch {
             graph.schedules.observe().collect { list ->
-                _state.update { it.copy(schedules = list, exactAlarm = graph.alarms.canExact()) }
+                _state.update {
+                    it.copy(
+                        schedules = list,
+                        exactAlarm = graph.alarms.canExact(),
+                        scheduleReceipt = receiptOf(list),
+                    )
+                }
             }
         }
         viewModelScope.launch { graph.scheduleHost.resync() }
@@ -291,6 +305,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val history = graph.sessions.listMessages(sid).dropLastWhile { it.role == "user" && it.content == text }
             val settings = graph.settings.current()
             val task = settings.taskMode
+            val health = graph.actions.deviceHealth()
+            graph.sessions.saveMessage(sid, ChatMessage(role = "system", content = "[device_health]\n$health"))
             if (task && graph.overlay.canDraw()) {
                 if (settings.floatOnTask) graph.overlay.show(settings.theme)
                 else graph.overlay.collapse(settings.theme)
@@ -309,6 +325,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         thinkingEnabled = settings.thinkingEnabled,
                         maxTokens = settings.maxTokens,
                         toolNames = if (task) null else _state.value.extraTools.toList(),
+                        healthText = health,
                     ),
                 ).collect { event ->
                     when (event) {
@@ -405,11 +422,32 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 }
 
+private fun receiptOf(jobs: List<ScheduleEntity>): ScheduleReceipt? {
+    return jobs
+        .filter { it.lastRunAt > 0 || it.lastStatus.isNotBlank() }
+        .maxByOrNull { it.lastRunAt }
+        ?.let {
+            ScheduleReceipt(
+                title = it.title,
+                status = it.lastStatus.ifBlank { "已记录" },
+                sessionId = it.lastSessionId,
+                at = it.lastRunAt,
+            )
+        }
+}
+
 internal fun foldMessagesForUi(messages: List<ChatMessage>): List<UiMessage> {
     val out = ArrayList<UiMessage>()
     var pending: UiMessage? = null
     for (msg in messages) {
         when (msg.role) {
+            "system" -> {
+                if (msg.content.orEmpty().startsWith("[device_health]")) {
+                    pending?.let { out += it }
+                    pending = null
+                    out += msg.toUi().copy(role = "system")
+                }
+            }
             "user" -> {
                 pending?.let { out += it }
                 pending = null
