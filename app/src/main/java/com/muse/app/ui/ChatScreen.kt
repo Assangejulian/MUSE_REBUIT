@@ -1,9 +1,16 @@
 package com.muse.app.ui
 
+import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.speech.RecognizerIntent
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -37,6 +44,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Forum
+import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material.icons.rounded.ArrowUpward
@@ -87,11 +96,27 @@ fun ChatScreen(
     onToggleExtraTool: (String) -> Unit = {},
     onImportMemory: () -> Unit = {},
     onOpenSchedules: () -> Unit = {},
+    onShowBall: () -> Unit = {},
 ) {
     val palette = LocalPalette.current
     val style = LocalMuseStyle.current
+    val context = LocalContext.current
     val listState = rememberLazyListState()
     var toolsOpen by remember { mutableStateOf(false) }
+    val speech = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull()
+            ?.trim()
+            .orEmpty()
+        if (spoken.isNotEmpty()) {
+            val cur = state.input
+            onInput(if (cur.isBlank()) spoken else "$cur$spoken")
+        }
+    }
+    val micPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) startSpeech(context, speech::launch)
+        else Toast.makeText(context, "需要麦克风权限才能语音输入。", Toast.LENGTH_SHORT).show()
+    }
     LaunchedEffect(state.messages.size, state.messages.lastOrNull()?.content, state.messages.lastOrNull()?.thinking) {
         if (state.messages.isNotEmpty()) {
             listState.animateScrollToItem(state.messages.lastIndex)
@@ -130,6 +155,11 @@ fun ChatScreen(
                     fontSize = 12.sp,
                     maxLines = 1,
                 )
+            }
+            if (state.running) {
+                IconButton(onClick = onShowBall) {
+                    Icon(Icons.Outlined.RadioButtonUnchecked, contentDescription = "打开小球", tint = palette.mauve)
+                }
             }
             ModeChip(
                 task = state.settings.taskMode,
@@ -200,6 +230,12 @@ fun ChatScreen(
             running = state.running,
             onValueChange = onInput,
             onPlus = { toolsOpen = true },
+            onMic = {
+                val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                    PackageManager.PERMISSION_GRANTED
+                if (granted) startSpeech(context, speech::launch)
+                else micPerm.launch(Manifest.permission.RECORD_AUDIO)
+            },
             onSend = onSend,
             onStop = onStop,
         )
@@ -219,6 +255,10 @@ fun ChatScreen(
             onOpenSchedules = {
                 toolsOpen = false
                 onOpenSchedules()
+            },
+            onShowBall = {
+                toolsOpen = false
+                onShowBall()
             },
         )
     }
@@ -275,6 +315,7 @@ private fun ComposerBar(
     running: Boolean,
     onValueChange: (String) -> Unit,
     onPlus: () -> Unit,
+    onMic: () -> Unit,
     onSend: () -> Unit,
     onStop: () -> Unit,
 ) {
@@ -319,6 +360,18 @@ private fun ComposerBar(
                 }
             },
         )
+        if (!running) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(palette.surface0)
+                    .clickable(onClick = onMic),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Outlined.Mic, contentDescription = "语音输入", tint = palette.text)
+            }
+        }
         Box(
             modifier = Modifier
                 .size(40.dp)
@@ -358,6 +411,7 @@ private fun ToolPickerSheet(
     onToggleExtraTool: (String) -> Unit,
     onImportMemory: () -> Unit,
     onOpenSchedules: () -> Unit,
+    onShowBall: () -> Unit,
 ) {
     val palette = LocalPalette.current
     ModalBottomSheet(
@@ -408,6 +462,15 @@ private fun ToolPickerSheet(
                 }
             }
             Spacer(Modifier.height(16.dp))
+            Text(
+                "打开悬浮小球",
+                color = palette.mauve,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onShowBall)
+                    .padding(vertical = 8.dp),
+            )
             Text(
                 "定时任务清单",
                 color = palette.mauve,
@@ -593,4 +656,21 @@ private fun copyText(context: Context, text: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     clipboard.setPrimaryClip(ClipData.newPlainText("muse", text))
     Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+}
+
+private fun startSpeech(context: Context, launch: (Intent) -> Unit) {
+    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "zh-CN")
+        putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "zh-CN")
+        putExtra(RecognizerIntent.EXTRA_PROMPT, "说给 Muse")
+        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+    }
+    if (intent.resolveActivity(context.packageManager) == null) {
+        Toast.makeText(context, "这台手机没有语音识别。", Toast.LENGTH_SHORT).show()
+        return
+    }
+    runCatching { launch(intent) }.onFailure {
+        Toast.makeText(context, "打不开语音识别。", Toast.LENGTH_SHORT).show()
+    }
 }

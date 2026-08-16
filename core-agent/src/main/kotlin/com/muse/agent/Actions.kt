@@ -19,7 +19,7 @@ interface ActionPort {
     suspend fun scroll(direction: String): String
     suspend fun waitMs(ms: Int): String
     suspend fun ocrScreen(): String
-    suspend fun floatWindow(on: Boolean): String
+    suspend fun floatWindow(state: String): String
     suspend fun scheduleCreate(title: String, prompt: String, mode: String, `when`: String, repeat: String): String
     suspend fun scheduleList(): String
     suspend fun scheduleCancel(id: String): String

@@ -152,9 +152,9 @@ fun museToolDefinitions(): List<ToolDefinition> = listOf(
     ),
     toolSchema(
         name = "float_window",
-        description = "Expand or collapse the floating CoT window. off shrinks it to a small ball; on expands Thinking again.",
+        description = "Control the floating overlay. on = full Thinking panel, ball = small bubble, off = hide completely. The user can tap the ball to expand or long-press to hide.",
         properties = buildJsonObject {
-            put("state", buildEnumProp("on shows the overlay, off hides it", listOf("on", "off")))
+            put("state", buildEnumProp("on panel, ball bubble, off hidden", listOf("on", "ball", "off")))
         },
         required = listOf("state"),
     ),
@@ -299,7 +299,7 @@ Device control:
 5. type_text into the focused field. scroll up/down. keyevent BACK/HOME.
 6. tap/swipe/ui_dump only if snapshot has no useful nodes (custom-drawn UI).
 7. ocr_screen when the tree is empty, custom-drawn, or you need to double-check visible text. It returns text plus tap centers. Prefer ui_snapshot first — OCR is slower. Use OCR to assist judgment, not as the default look.
-8. float_window off shrinks the overlay to a ball if it blocks taps; float_window on expands it. The user can tap the ball to reopen.
+8. float_window: on = panel, ball = bubble, off = hide. User can also tap the ball to open, long-press to close. Use off if it blocks taps.
 9. Timed jobs: if the user asks to do something every day / at a clock, call schedule_task. For pages that show a changing claim time, write a daily job whose prompt says: do it now if possible; otherwise read the clock and schedule_task once at that exact today HH:mm.
 Use schedule_list / schedule_cancel to inspect or drop jobs.
 Use note_save when the user asks to keep a note.

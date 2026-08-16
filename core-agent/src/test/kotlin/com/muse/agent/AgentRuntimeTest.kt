@@ -63,7 +63,7 @@ class FakePorts : MemoryPort, NotePort, DevicePort, HttpPort, SearchPort, Action
     override suspend fun scroll(direction: String): String = "scroll $direction"
     override suspend fun waitMs(ms: Int): String = "wait $ms"
     override suspend fun ocrScreen(): String = "ocr:ok"
-    override suspend fun floatWindow(on: Boolean): String = "float:$on"
+    override suspend fun floatWindow(state: String): String = "float:$state"
     override suspend fun scheduleCreate(
         title: String,
         prompt: String,

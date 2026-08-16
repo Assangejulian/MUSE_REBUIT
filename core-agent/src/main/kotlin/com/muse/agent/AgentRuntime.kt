@@ -223,12 +223,8 @@ class AgentRuntime(
                         if (id.isBlank()) "错误：id 不能为空。" else actions.scheduleCancel(id)
                     }
                     "float_window" -> {
-                        val state = args.string("state").lowercase()
-                        when (state) {
-                            "on", "true", "1", "show" -> actions.floatWindow(true)
-                            "off", "false", "0", "hide" -> actions.floatWindow(false)
-                            else -> "错误：state 用 on 或 off。"
-                        }
+                        val state = args.string("state").ifBlank { args.string("on") }
+                        actions.floatWindow(state)
                     }
                     "find_nodes" -> {
                         val query = args.string("query")

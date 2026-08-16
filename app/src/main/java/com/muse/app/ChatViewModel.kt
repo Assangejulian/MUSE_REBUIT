@@ -226,6 +226,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         graph.settings.update { it.copy(taskMode = on) }
     }
 
+    fun showBall() {
+        val theme = graph.settings.current().theme
+        if (graph.overlay.canDraw()) graph.overlay.collapse(theme)
+    }
+
+    fun hideBall() {
+        graph.overlay.hide()
+    }
+
     fun toggleExtraTool(name: String) {
         _state.update { state ->
             val next = state.extraTools.toMutableSet()

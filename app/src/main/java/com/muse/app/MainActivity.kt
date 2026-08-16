@@ -90,6 +90,7 @@ class MainActivity : ComponentActivity(), TaskHost {
                                     memoryImport.launch(arrayOf("text/plain", "text/markdown", "text/*"))
                                 },
                                 onOpenSchedules = { nav.navigate("schedules") },
+                                onShowBall = viewModel::showBall,
                             )
                         }
                         composable("sessions") {

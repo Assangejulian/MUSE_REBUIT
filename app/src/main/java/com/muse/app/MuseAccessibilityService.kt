@@ -135,7 +135,7 @@ class MuseAccessibilityService : AccessibilityService() {
             }
         }
         if (a11yOk) {
-            delay(280)
+            delay(180)
             val after = snapshot()
             if (!sameScreen(before, after)) {
                 return "已点击 ${node.id}「${node.label()}」via a11y\n---\n${formatSnapshot(after)}"
@@ -143,7 +143,7 @@ class MuseAccessibilityService : AccessibilityService() {
         }
         val tapped = gesture(resolved.x.toFloat(), resolved.y.toFloat(), resolved.x.toFloat(), resolved.y.toFloat(), 60)
         if (tapped.startsWith("错误") && !a11yOk) return tapped
-        delay(280)
+        delay(180)
         val after = snapshot()
         val how = if (tapped.startsWith("错误")) "a11y" else "gesture (${resolved.x},${resolved.y})"
         return "已点击 ${node.id}「${node.label()}」via $how\n---\n${formatSnapshot(after)}"
@@ -173,7 +173,7 @@ class MuseAccessibilityService : AccessibilityService() {
 
     private suspend fun withTree(status: String): String {
         if (status.startsWith("错误：")) return status
-        delay(280)
+        delay(180)
         return status + "\n---\n" + snapshotText()
     }
 

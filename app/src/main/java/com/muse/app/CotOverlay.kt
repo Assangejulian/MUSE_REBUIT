@@ -149,10 +149,26 @@ class CotOverlay(context: Context) {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             setOnClickListener { attachBall() }
         }
+        val closeBg = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 10f * density
+            setColor(colors.stroke)
+        }
+        val close = TextView(app).apply {
+            text = "关闭"
+            setTextColor(colors.think)
+            background = closeBg
+            setPadding((14 * density).toInt(), (6 * density).toInt(), (14 * density).toInt(), (6 * density).toInt())
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            setOnClickListener { hide() }
+        }
         val actions = LinearLayout(app).apply {
             orientation = LinearLayout.HORIZONTAL
             addView(minify, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-                marginEnd = (8 * density).toInt()
+                marginEnd = (6 * density).toInt()
+            })
+            addView(close, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginEnd = (6 * density).toInt()
             })
             addView(stop, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         }
@@ -239,6 +255,11 @@ class CotOverlay(context: Context) {
         var startX = 0
         var startY = 0
         var dragged = false
+        var longFired = false
+        val longHide = Runnable {
+            longFired = true
+            hide()
+        }
         wrap.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -247,12 +268,17 @@ class CotOverlay(context: Context) {
                     startX = params.x
                     startY = params.y
                     dragged = false
+                    longFired = false
+                    main.postDelayed(longHide, 480)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = event.rawX.toInt() - downX
                     val dy = event.rawY.toInt() - downY
-                    if (abs(dx) > dp(6) || abs(dy) > dp(6)) dragged = true
+                    if (abs(dx) > dp(6) || abs(dy) > dp(6)) {
+                        dragged = true
+                        main.removeCallbacks(longHide)
+                    }
                     params.x = (startX + dx).coerceIn(0, metrics.widthPixels - size)
                     params.y = (startY + dy).coerceIn(0, metrics.heightPixels - size)
                     ballX = params.x
@@ -261,7 +287,8 @@ class CotOverlay(context: Context) {
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    if (!dragged) attachPanel()
+                    main.removeCallbacks(longHide)
+                    if (!dragged && !longFired) attachPanel()
                     true
                 }
                 else -> false

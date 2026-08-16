@@ -216,10 +216,8 @@ class AndroidActions(
 
     override suspend fun ocrScreen(): String {
         val expanded = overlay?.isShowing() == true
-        val present = overlay?.isPresent() == true
-        if (present) overlay?.hide()
-        if (present) delay(140)
-        val theme = settings?.current()?.theme ?: "cream"
+        if (expanded) overlay?.collapse(settings?.current()?.theme ?: "cream")
+        if (expanded) delay(80)
         return try {
             val shot = captureScreen() ?: return "错误：截屏失败。打开无障碍（Android 11+）或连接 Shizuku。"
             val hits = ScreenOcr.read(shot.first)
@@ -228,22 +226,30 @@ class AndroidActions(
         } catch (t: Throwable) {
             "错误：OCR 失败：${t.message ?: t::class.java.simpleName}"
         } finally {
-            if (expanded) overlay?.show(theme)
-            else if (present) overlay?.collapse(theme)
+            if (expanded) overlay?.show(settings?.current()?.theme ?: "cream")
         }
     }
 
-    override suspend fun floatWindow(on: Boolean): String {
-        settings?.update { it.copy(floatOnTask = on) }
-        val ov = overlay ?: return if (on) "错误：悬浮窗不可用。" else "已收成小球。"
+    override suspend fun floatWindow(state: String): String {
+        val ov = overlay ?: return "错误：悬浮窗不可用。"
         if (!ov.canDraw()) return "错误：没有悬浮窗权限。去设置开启悬浮窗后再开。"
         val theme = settings?.current()?.theme ?: "cream"
-        return if (on) {
-            ov.show(theme)
-            "悬浮窗已展开。"
-        } else {
-            ov.collapse(theme)
-            "悬浮窗已收成小球，点一下可打开。"
+        return when (state.trim().lowercase()) {
+            "on", "true", "1", "show", "panel" -> {
+                settings?.update { it.copy(floatOnTask = true) }
+                ov.show(theme)
+                "悬浮窗已展开。用户点收起变小球，长按小球可关闭。"
+            }
+            "ball", "bubble", "min" -> {
+                settings?.update { it.copy(floatOnTask = false) }
+                ov.collapse(theme)
+                "已收成小球。点一下打开，长按关闭。"
+            }
+            "off", "false", "0", "hide" -> {
+                ov.hide()
+                "小球已关闭。用户可在 Muse 里再打开，或你再 float_window on/ball。"
+            }
+            else -> "错误：state 用 on、ball 或 off。"
         }
     }
 
@@ -321,7 +327,7 @@ class AndroidActions(
         return null
     }
 
-    private suspend fun withFreshTree(status: String, settleMs: Long = 280): String {
+    private suspend fun withFreshTree(status: String, settleMs: Long = 180): String {
         if (status.startsWith("错误：")) return status
         if (settleMs > 0) delay(settleMs)
         val tree = runCatching { uiSnapshot() }.getOrDefault("(snapshot failed)")
