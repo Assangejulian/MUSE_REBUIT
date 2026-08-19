@@ -129,7 +129,8 @@ class ChatMessageApiTest {
             thinkingEnabled = true,
         ).toBody()
         assertTrue(body.contains("include_thoughts"))
-        assertTrue(body.contains("reasoning_effort"))
+        assertTrue(body.contains("thinking_config"))
+        assertFalse(body.contains("reasoning_effort"))
         assertFalse(body.contains("\"type\":\"enabled\""))
         assertTrue(body.contains("gemini-2.5-flash"))
     }

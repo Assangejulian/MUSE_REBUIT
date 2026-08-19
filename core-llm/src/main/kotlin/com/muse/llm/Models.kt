@@ -156,7 +156,6 @@ private fun kotlinx.serialization.json.JsonObjectBuilder.putThinking(
         }
         ModelProvider.Gemini -> {
             if (!enabled) return
-            put("reasoning_effort", level)
             put(
                 "extra_body",
                 buildJsonObject {
