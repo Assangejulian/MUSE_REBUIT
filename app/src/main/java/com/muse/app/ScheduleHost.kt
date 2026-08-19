@@ -83,7 +83,7 @@ class ScheduleHost(
         }
         try {
             val settings = graph.settings.current()
-            if (settings.apiKey.isBlank()) {
+            if (settings.keyForModel().isBlank()) {
                 graph.schedules.upsert(job.copy(lastStatus = "没有 API Key"))
                 advance(job, "没有 API Key")
                 return

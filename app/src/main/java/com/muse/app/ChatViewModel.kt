@@ -78,7 +78,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch {
             graph.settings.settings.collect { settings ->
-                val has = settings.apiKey.isNotBlank() || settings.geminiKey.isNotBlank() || settings.qwenKey.isNotBlank()
+                val has = settings.hasAnyKey()
                 _state.update { it.copy(settings = settings, hasKey = has) }
             }
         }

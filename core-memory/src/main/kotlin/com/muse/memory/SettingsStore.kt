@@ -14,6 +14,12 @@ import com.muse.llm.modelProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.put
 
 data class MuseSettings(
     val apiKey: String = "",
@@ -27,11 +33,29 @@ data class MuseSettings(
     val taskMode: Boolean = false,
     val geminiKey: String = "",
     val qwenKey: String = "",
+    val extraKeys: Map<String, String> = emptyMap(),
 ) {
-    fun keyForModel(modelId: String = model): String = when (modelProvider(modelId)) {
-        ModelProvider.Gemini -> geminiKey.ifBlank { apiKey }
-        ModelProvider.Qwen -> qwenKey.ifBlank { apiKey }
+    fun keyForProvider(provider: ModelProvider): String = when (provider) {
         ModelProvider.DeepSeek -> apiKey
+        ModelProvider.Gemini -> geminiKey
+        ModelProvider.Qwen -> qwenKey
+        else -> extraKeys[provider.name].orEmpty()
+    }
+
+    fun keyForModel(modelId: String = model): String = keyForProvider(modelProvider(modelId))
+
+    fun hasAnyKey(): Boolean =
+        apiKey.isNotBlank() || geminiKey.isNotBlank() || qwenKey.isNotBlank() ||
+            extraKeys.values.any { it.isNotBlank() }
+
+    fun withProviderKey(provider: ModelProvider, key: String): MuseSettings {
+        val trimmed = key.trim()
+        return when (provider) {
+            ModelProvider.DeepSeek -> copy(apiKey = trimmed)
+            ModelProvider.Gemini -> copy(geminiKey = trimmed)
+            ModelProvider.Qwen -> copy(qwenKey = trimmed)
+            else -> copy(extraKeys = extraKeys + (provider.name to trimmed))
+        }
     }
 
     fun withModel(id: String): MuseSettings {
@@ -63,6 +87,7 @@ class SettingsStore(context: Context) {
             .putBoolean(KEY_TASK_MODE, next.taskMode)
             .putString(KEY_GEMINI, next.geminiKey)
             .putString(KEY_QWEN, next.qwenKey)
+            .putString(KEY_EXTRA, encodeKeys(next.extraKeys))
             .apply()
         _settings.value = next
     }
@@ -79,6 +104,7 @@ class SettingsStore(context: Context) {
         taskMode = prefs.getBoolean(KEY_TASK_MODE, false),
         geminiKey = prefs.getString(KEY_GEMINI, "").orEmpty(),
         qwenKey = prefs.getString(KEY_QWEN, "").orEmpty(),
+        extraKeys = decodeKeys(prefs.getString(KEY_EXTRA, "").orEmpty()),
     )
 
     private fun createPrefs(context: Context): SharedPreferences {
@@ -112,5 +138,30 @@ class SettingsStore(context: Context) {
         const val KEY_TASK_MODE = "task_mode"
         const val KEY_GEMINI = "gemini_key"
         const val KEY_QWEN = "qwen_key"
+        const val KEY_EXTRA = "provider_keys"
+    }
+}
+
+private val KeyJson = Json { ignoreUnknownKeys = true }
+
+private fun encodeKeys(map: Map<String, String>): String {
+    val kept = map.filterValues { it.isNotBlank() }
+    if (kept.isEmpty()) return ""
+    return buildJsonObject {
+        kept.forEach { (name, value) -> put(name, value) }
+    }.toString()
+}
+
+private fun decodeKeys(raw: String): Map<String, String> {
+    if (raw.isBlank()) return emptyMap()
+    return try {
+        KeyJson.parseToJsonElement(raw).let { el ->
+            (el as? JsonObject)?.mapNotNull { (k, v) ->
+                val value = (v as? JsonPrimitive)?.contentOrNull.orEmpty()
+                if (value.isBlank()) null else k to value
+            }?.toMap().orEmpty()
+        }
+    } catch (_: Exception) {
+        emptyMap()
     }
 }

@@ -38,6 +38,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -379,37 +381,56 @@ private fun ModelPickerSheet(
     onSelect: (String) -> Unit,
 ) {
     val palette = LocalPalette.current
-    val provider = modelProvider(selected)
+    var provider by remember { mutableStateOf(modelProvider(selected)) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = palette.base,
     ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+        ) {
+            Text("厂商", color = palette.subtext0, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            Spacer(Modifier.height(10.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ModelProvider.entries.forEach { p ->
+                    FilterChip(
+                        selected = provider == p,
+                        onClick = { provider = p },
+                        label = { Text(p.label) },
+                        colors = sheetChipColors(palette, provider == p),
+                        shape = RoundedCornerShape(14.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.height(16.dp))
             Text("Model", color = palette.subtext0, fontSize = 12.sp, fontWeight = FontWeight.Medium)
             Spacer(Modifier.height(10.dp))
-            ModelProvider.entries.forEach { p ->
-                Text(p.name, color = palette.overlay1, fontSize = 12.sp, modifier = Modifier.padding(bottom = 6.dp))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(bottom = 12.dp),
-                ) {
-                    MODEL_CATALOG.filter { it.provider == p }.forEach { opt ->
-                        FilterChip(
-                            selected = selected == opt.id,
-                            onClick = { onSelect(opt.id) },
-                            label = { Text(opt.label) },
-                            colors = sheetChipColors(palette, selected == opt.id),
-                            shape = RoundedCornerShape(14.dp),
-                        )
-                    }
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                MODEL_CATALOG.filter { it.provider == provider }.forEach { opt ->
+                    FilterChip(
+                        selected = selected == opt.id,
+                        onClick = { onSelect(opt.id) },
+                        label = { Text(opt.label) },
+                        colors = sheetChipColors(palette, selected == opt.id),
+                        shape = RoundedCornerShape(14.dp),
+                    )
                 }
             }
             Text(
-                "Gemini / Qwen 用各自的 API Key（设置里）。还在默认地址时会自动换 Base URL。",
+                "每个厂商用自己的 API Key（设置里）。还在默认地址时会自动换 Base URL。Claude 走 OpenRouter。",
                 color = palette.overlay1,
                 fontSize = 12.sp,
-                modifier = Modifier.padding(bottom = 20.dp),
+                modifier = Modifier.padding(top = 12.dp, bottom = 20.dp),
             )
         }
     }

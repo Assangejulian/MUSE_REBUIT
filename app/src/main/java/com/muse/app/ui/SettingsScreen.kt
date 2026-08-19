@@ -43,8 +43,6 @@ import com.muse.design.LocalPalette
 import com.muse.llm.DEFAULT_MAX_TOKENS
 import com.muse.llm.MAX_TOKENS_CAP
 import com.muse.llm.MODEL_CATALOG
-import com.muse.llm.MODEL_FLASH
-import com.muse.llm.MODEL_PRO
 import com.muse.llm.ModelProvider
 import com.muse.llm.modelOption
 import com.muse.llm.modelProvider
@@ -80,9 +78,9 @@ fun SettingsScreen(
     onOpenSchedules: () -> Unit = {},
 ) {
     val palette = LocalPalette.current
-    var apiKey by remember(settings.apiKey) { mutableStateOf(settings.apiKey) }
-    var geminiKey by remember(settings.geminiKey) { mutableStateOf(settings.geminiKey) }
-    var qwenKey by remember(settings.qwenKey) { mutableStateOf(settings.qwenKey) }
+    var keyDrafts by remember {
+        mutableStateOf(ModelProvider.entries.associate { it.name to settings.keyForProvider(it) })
+    }
     var baseUrl by remember(settings.baseUrl) { mutableStateOf(settings.baseUrl) }
     var maxTokens by remember(settings.maxTokens) { mutableStateOf(settings.maxTokens.toString()) }
     var memory by remember { mutableStateOf(memoryText) }
@@ -151,11 +149,7 @@ fun SettingsScreen(
             SectionLabel("Model")
             val provider = modelProvider(settings.model)
             ChipRow(
-                options = listOf(
-                    ModelProvider.DeepSeek.name to "DeepSeek",
-                    ModelProvider.Gemini.name to "Gemini",
-                    ModelProvider.Qwen.name to "Qwen",
-                ),
+                options = ModelProvider.entries.map { it.name to it.label },
                 selected = provider.name,
                 onSelect = { name ->
                     val p = ModelProvider.valueOf(name)
@@ -268,25 +262,11 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(16.dp))
-            SectionLabel(
-                when (provider) {
-                    ModelProvider.Gemini -> "Gemini API Key"
-                    ModelProvider.Qwen -> "Qwen API Key"
-                    ModelProvider.DeepSeek -> "DeepSeek API Key"
-                },
-            )
+            SectionLabel("${provider.label} API Key")
             MuseField(
-                value = when (provider) {
-                    ModelProvider.Gemini -> geminiKey
-                    ModelProvider.Qwen -> qwenKey
-                    ModelProvider.DeepSeek -> apiKey
-                },
-                onValueChange = {
-                    when (provider) {
-                        ModelProvider.Gemini -> geminiKey = it
-                        ModelProvider.Qwen -> qwenKey = it
-                        ModelProvider.DeepSeek -> apiKey = it
-                    }
+                value = keyDrafts[provider.name].orEmpty(),
+                onValueChange = { next ->
+                    keyDrafts = keyDrafts + (provider.name to next)
                 },
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -300,13 +280,12 @@ fun SettingsScreen(
             Spacer(Modifier.height(8.dp))
             Button(
                 onClick = {
-                    onChange {
-                        it.copy(
-                            apiKey = apiKey.trim(),
-                            geminiKey = geminiKey.trim(),
-                            qwenKey = qwenKey.trim(),
-                            baseUrl = baseUrl.trim().ifBlank { it.baseUrl },
-                        )
+                    onChange { current ->
+                        var next = current.copy(baseUrl = baseUrl.trim().ifBlank { current.baseUrl })
+                        ModelProvider.entries.forEach { p ->
+                            next = next.withProviderKey(p, keyDrafts[p.name].orEmpty())
+                        }
+                        next
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = palette.mauve, contentColor = palette.crust),

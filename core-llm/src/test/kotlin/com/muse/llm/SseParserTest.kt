@@ -143,4 +143,25 @@ class ChatMessageApiTest {
             normalizeChatEndpoint("https://api.deepseek.com/chat/completions"),
         )
     }
+
+    @Test
+    fun catalogIdsAreUniqueAndCoverVendors() {
+        val ids = MODEL_CATALOG.map { it.id }
+        assertEquals(ids.size, ids.toSet().size)
+        val vendors = MODEL_CATALOG.map { it.provider }.toSet()
+        assertTrue(vendors.containsAll(ModelProvider.entries.toSet()))
+        assertTrue(MODEL_CATALOG.filter { it.thinking }.all { it.provider == ModelProvider.DeepSeek })
+    }
+
+    @Test
+    fun openaiBodyOmitsDeepSeekThinking() {
+        val body = ChatRequest(
+            model = MODEL_GPT_TERRA,
+            messages = listOf(ChatMessage(role = "user", content = "hi")),
+            thinkingEnabled = true,
+        ).toBody()
+        assertFalse(body.contains("reasoning_effort"))
+        assertFalse(body.contains("\"thinking\""))
+        assertTrue(body.contains("gpt-5.6-terra"))
+    }
 }
