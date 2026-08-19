@@ -126,7 +126,9 @@ class StreamAccumulator {
     fun apply(chunk: StreamChunk): AppliedDelta {
         val r0 = reasoning.length
         val c0 = content.length
-        if (!chunk.reasoning.isNullOrEmpty()) reasoning.append(chunk.reasoning)
+        if (!chunk.reasoning.isNullOrEmpty() && isDisplayableThought(chunk.reasoning)) {
+            reasoning.append(chunk.reasoning)
+        }
         if (!chunk.content.isNullOrEmpty()) ingestContent(chunk.content)
         if (chunk.finishReason != null) finishReason = chunk.finishReason
         if (chunk.extraContent != null) messageExtra = chunk.extraContent
@@ -147,22 +149,22 @@ class StreamAccumulator {
         var i = 0
         while (i < raw.length) {
             if (!inThinkTag) {
-                val hit = raw.findAnyOf(THINK_OPEN, i)
+                val hit = findThinkTag(raw, i, THINK_OPEN)
                 if (hit == null) {
                     content.append(raw, i, raw.length)
                     return
                 }
                 if (hit.first > i) content.append(raw, i, hit.first)
-                i = hit.first + hit.second.length
+                i = hit.first + hit.second
                 inThinkTag = true
             } else {
-                val hit = raw.findAnyOf(THINK_CLOSE, i)
+                val hit = findThinkTag(raw, i, THINK_CLOSE)
                 if (hit == null) {
                     reasoning.append(raw, i, raw.length)
                     return
                 }
                 if (hit.first > i) reasoning.append(raw, i, hit.first)
-                i = hit.first + hit.second.length
+                i = hit.first + hit.second
                 inThinkTag = false
             }
         }
@@ -199,11 +201,37 @@ private class MutableToolCall {
     var extraContent: JsonObject? = null
 }
 
-private val THINK_OPEN = listOf("<think>", "<thinking>")
-private val THINK_CLOSE = listOf("</think>", "</thinking>")
+private val THINK_OPEN = listOf("<think>", "<thinking>", "<thought>")
+private val THINK_CLOSE = listOf("</think>", "</thinking>", "</thought>")
+
+fun splitThoughtMarkup(text: String): Pair<String, String> {
+    if (text.isEmpty()) return "" to ""
+    val acc = StreamAccumulator()
+    acc.apply(StreamChunk(content = text))
+    return acc.contentText() to acc.reasoningText()
+}
+
+fun isDisplayableThought(text: String): Boolean {
+    val trimmed = text.trim()
+    return trimmed.isNotEmpty() && !trimmed.equals("true", ignoreCase = true) &&
+        !trimmed.equals("false", ignoreCase = true)
+}
+
+private fun findThinkTag(raw: String, start: Int, tags: List<String>): Pair<Int, Int>? {
+    var best: Pair<Int, Int>? = null
+    for (tag in tags) {
+        val idx = raw.indexOf(tag, start, ignoreCase = true)
+        if (idx >= 0 && (best == null || idx < best.first)) {
+            best = idx to tag.length
+        }
+    }
+    return best
+}
 
 private fun extractReasoning(source: JsonObject): String? {
-    source.stringField("reasoning_content", "reasoning", "thinking")?.let { return it }
+    source.stringField("reasoning_content", "reasoning", "thinking")
+        ?.takeIf { isDisplayableThought(it) }
+        ?.let { return it }
     googleThought(source)?.let { return it }
     val details = source["reasoning_details"]?.jsonArrayOrNull() ?: return null
     val texts = details.mapNotNull { el ->
@@ -243,7 +271,7 @@ private fun googleThought(source: JsonObject): String? {
     val google = source["extra_content"]?.jsonObjectOrNull()?.get("google")?.jsonObjectOrNull()
         ?: source["google"]?.jsonObjectOrNull()
         ?: return null
-    google.stringField("thought", "thinking", "text")?.let { return it }
+    google.stringField("thought", "thinking")?.takeIf { isDisplayableThought(it) }?.let { return it }
     val thoughts = google["thoughts"]?.jsonArrayOrNull() ?: return null
     val parts = thoughts.mapNotNull { el ->
         when (el) {
@@ -258,8 +286,9 @@ private fun googleThought(source: JsonObject): String? {
 private fun JsonObject.stringField(vararg keys: String): String? {
     for (key in keys) {
         val value = this[key] as? JsonPrimitive ?: continue
-        val text = value.contentOrNull
-        if (!text.isNullOrEmpty()) return text
+        if (!value.isString) continue
+        val text = value.content
+        if (text.isNotEmpty()) return text
     }
     return null
 }

@@ -247,6 +247,17 @@ class ChatMessageApiTest {
     }
 
     @Test
+    fun ignoresBooleanThoughtFlag() {
+        val acc = StreamAccumulator()
+        val parsed = SseParser.parseLine(
+            """data: {"choices":[{"delta":{"extra_content":{"google":{"thought":true}},"content":"<thought>先想</thought>答案"}}]}""",
+        ) as SseParse.Chunk
+        acc.apply(parsed.chunk)
+        assertEquals("先想", acc.reasoningText())
+        assertEquals("答案", acc.contentText())
+    }
+
+    @Test
     fun splitsThinkTagsIntoReasoning() {
         val acc = StreamAccumulator()
         acc.apply(

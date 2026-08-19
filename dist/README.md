@@ -30,3 +30,4 @@
 | `Muse-0.5.6-debug.apk` | 0.5.6 | 2026-08-19 | Gemini 回传 thought_signature；see_screen 把截图发给视觉模型 |
 | `Muse-0.5.7-debug.apk` | 0.5.7 | 2026-08-19 | 各厂商 CoT 显示；悬浮窗跟小球位置展开 |
 | `Muse-0.5.8-debug.apk` | 0.5.8 | 2026-08-19 | Gemini 只发 thinking_config，不再和 reasoning_effort 打架 |
+| `Muse-0.5.9-debug.apk` | 0.5.9 | 2026-08-19 | Gemini `<thought>` 收到思考区；不再把 true 当成思维链 |

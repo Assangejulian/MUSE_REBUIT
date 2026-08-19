@@ -31,4 +31,21 @@ class ChatFoldTest {
         assertTrue(ui[1].content.contains("上限"))
         assertTrue(ui[1].error)
     }
+
+    @Test
+    fun peelsThoughtTagsOutOfAssistantContent() {
+        val ui = foldMessagesForUi(
+            listOf(
+                ChatMessage(role = "user", content = "hi"),
+                ChatMessage(
+                    role = "assistant",
+                    reasoningContent = "true",
+                    content = "<thought>Answering the User\nstep</thought>三月截止。",
+                ),
+            ),
+        )
+        assertEquals(2, ui.size)
+        assertEquals("Answering the User\nstep", ui[1].thinking)
+        assertEquals("三月截止。", ui[1].content)
+    }
 }

@@ -488,10 +488,16 @@ internal fun foldMessagesForUi(messages: List<ChatMessage>): List<UiMessage> {
     return out
 }
 
-private fun ChatMessage.toUi(): UiMessage = UiMessage(
-    id = UUID.randomUUID().toString(),
-    role = role,
-    content = content.orEmpty(),
-    thinking = reasoningContent.orEmpty(),
-    tools = toolCalls.orEmpty().map { UiTool(it.function.name, it.function.arguments, done = true) },
-)
+private fun ChatMessage.toUi(): UiMessage {
+    val (visible, tagged) = com.muse.llm.splitThoughtMarkup(content.orEmpty())
+    val think = listOf(reasoningContent.orEmpty(), tagged)
+        .filter { com.muse.llm.isDisplayableThought(it) }
+        .joinToString("\n")
+    return UiMessage(
+        id = UUID.randomUUID().toString(),
+        role = role,
+        content = visible,
+        thinking = think,
+        tools = toolCalls.orEmpty().map { UiTool(it.function.name, it.function.arguments, done = true) },
+    )
+}
