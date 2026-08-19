@@ -34,7 +34,7 @@ class CotOverlay(context: Context) {
     private var lastTool = "Thinking"
     private var ballX = 0
     private var ballY = 0
-    private var panelY = 0
+    private var hasBallPos = false
     var onStop: (() -> Unit)? = null
 
     enum class Mode { Hidden, Panel, Ball }
@@ -183,13 +183,14 @@ class CotOverlay(context: Context) {
         )
         panel.addView(actions, lp(top = 8))
 
-        if (panelY == 0) panelY = dp(48)
         val params = overlayParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
         ).apply {
-            gravity = Gravity.TOP
-            y = panelY
+            gravity = Gravity.TOP or Gravity.START
+            x = dp(12)
+            width = app.resources.displayMetrics.widthPixels - dp(24)
+            y = yForPanel(dp(220))
         }
         var lastY = 0
         title.setOnTouchListener { _, event ->
@@ -202,7 +203,6 @@ class CotOverlay(context: Context) {
                     val dy = event.rawY.toInt() - lastY
                     lastY = event.rawY.toInt()
                     params.y = (params.y + dy).coerceAtLeast(0)
-                    panelY = params.y
                     runCatching { wm.updateViewLayout(panel, params) }
                     true
                 }
@@ -210,6 +210,10 @@ class CotOverlay(context: Context) {
             }
         }
         wm.addView(panel, params)
+        panel.post {
+            params.y = yForPanel(panel.height.coerceAtLeast(dp(160)))
+            runCatching { wm.updateViewLayout(panel, params) }
+        }
         root = panel
         thinkingView = think
         toolView = tool
@@ -241,9 +245,10 @@ class CotOverlay(context: Context) {
             addView(label, FrameLayout.LayoutParams(size, size))
         }
         val metrics = app.resources.displayMetrics
-        if (ballX == 0 && ballY == 0) {
+        if (!hasBallPos) {
             ballX = metrics.widthPixels - size - dp(16)
             ballY = (metrics.heightPixels * 0.35f).toInt()
+            hasBallPos = true
         }
         val params = overlayParams(size, size).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -283,6 +288,7 @@ class CotOverlay(context: Context) {
                     params.y = (startY + dy).coerceIn(0, metrics.heightPixels - size)
                     ballX = params.x
                     ballY = params.y
+                    hasBallPos = true
                     runCatching { wm.updateViewLayout(wrap, params) }
                     true
                 }
@@ -327,6 +333,26 @@ class CotOverlay(context: Context) {
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT,
         )
+
+    private fun yForPanel(panelHeight: Int): Int {
+        val screenH = app.resources.displayMetrics.heightPixels
+        val minY = dp(24)
+        val maxY = (screenH - panelHeight - dp(12)).coerceAtLeast(minY)
+        if (!hasBallPos) return dp(48).coerceIn(minY, maxY)
+        val gap = dp(10)
+        val ballSize = dp(52)
+        val below = ballY + ballSize + gap
+        val above = ballY - panelHeight - gap
+        val y = when {
+            below + panelHeight <= screenH - dp(8) -> below
+            above >= minY -> above
+            else -> {
+                val spaceBelow = screenH - ballY - ballSize
+                if (spaceBelow >= ballY) below else above
+            }
+        }
+        return y.coerceIn(minY, maxY)
+    }
 
     private fun lp(top: Int = 0) = LinearLayout.LayoutParams(
         LinearLayout.LayoutParams.WRAP_CONTENT,

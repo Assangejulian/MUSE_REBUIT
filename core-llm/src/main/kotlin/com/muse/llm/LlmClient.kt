@@ -77,11 +77,9 @@ class DeepSeekClient(
                         return@flow
                     }
                     is SseParse.Chunk -> {
-                        acc.apply(parsed.chunk)
-                        val reasoning = parsed.chunk.reasoning
-                        if (!reasoning.isNullOrEmpty()) emit(LlmEvent.ReasoningDelta(reasoning))
-                        val content = parsed.chunk.content
-                        if (!content.isNullOrEmpty()) emit(LlmEvent.ContentDelta(content))
+                        val applied = acc.apply(parsed.chunk)
+                        if (!applied.reasoning.isNullOrEmpty()) emit(LlmEvent.ReasoningDelta(applied.reasoning))
+                        if (!applied.content.isNullOrEmpty()) emit(LlmEvent.ContentDelta(applied.content))
                     }
                 }
             }

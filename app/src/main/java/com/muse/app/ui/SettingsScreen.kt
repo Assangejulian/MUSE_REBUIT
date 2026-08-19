@@ -46,6 +46,7 @@ import com.muse.llm.MODEL_CATALOG
 import com.muse.llm.ModelProvider
 import com.muse.llm.modelOption
 import com.muse.llm.modelProvider
+import com.muse.llm.providerUsesEffort
 import com.muse.memory.MuseSettings
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -167,15 +168,22 @@ fun SettingsScreen(
                 },
             )
             Spacer(Modifier.height(16.dp))
-            if (provider == ModelProvider.DeepSeek) {
+            SectionLabel("Thinking")
+            ChipRow(
+                options = listOf("on" to "开启", "off" to "关闭"),
+                selected = if (settings.thinkingEnabled) "on" else "off",
+                onSelect = { value -> onChange { it.copy(thinkingEnabled = value == "on") } },
+            )
+            if (settings.thinkingEnabled && providerUsesEffort(provider)) {
+                Spacer(Modifier.height(8.dp))
                 SectionLabel("Thinking effort")
                 ChipRow(
                     options = listOf("low" to "low", "high" to "high", "max" to "max"),
                     selected = settings.reasoningEffort,
                     onSelect = { value -> onChange { it.copy(reasoningEffort = value) } },
                 )
-                Spacer(Modifier.height(16.dp))
             }
+            Spacer(Modifier.height(16.dp))
             SectionLabel("主题")
             ChipRow(
                 options = listOf(

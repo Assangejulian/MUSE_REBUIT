@@ -1,8 +1,10 @@
 package com.muse.llm
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
@@ -88,10 +90,16 @@ object SseParser {
                 extraContent = thoughtExtra(obj) ?: fn?.let { thoughtExtra(it) },
             )
         }.orEmpty()
+        val (content, partReasoning) = extractContent(source)
+        val fieldReasoning = extractReasoning(source)
+        val reasoning = listOfNotNull(fieldReasoning, partReasoning)
+            .filter { it.isNotEmpty() }
+            .joinToString("")
+            .ifEmpty { null }
         return SseParse.Chunk(
             StreamChunk(
-                reasoning = source["reasoning_content"]?.jsonPrimitive?.contentOrNull,
-                content = source["content"]?.jsonPrimitive?.contentOrNull,
+                reasoning = reasoning,
+                content = content,
                 role = source["role"]?.jsonPrimitive?.contentOrNull,
                 finishReason = finish,
                 toolCallDeltas = toolDeltas,
@@ -101,17 +109,25 @@ object SseParser {
     }
 }
 
+data class AppliedDelta(
+    val reasoning: String? = null,
+    val content: String? = null,
+)
+
 class StreamAccumulator {
     private val reasoning = StringBuilder()
     private val content = StringBuilder()
     private val tools = linkedMapOf<Int, MutableToolCall>()
     private var messageExtra: JsonObject? = null
+    private var inThinkTag = false
     var finishReason: String? = null
         private set
 
-    fun apply(chunk: StreamChunk) {
+    fun apply(chunk: StreamChunk): AppliedDelta {
+        val r0 = reasoning.length
+        val c0 = content.length
         if (!chunk.reasoning.isNullOrEmpty()) reasoning.append(chunk.reasoning)
-        if (!chunk.content.isNullOrEmpty()) content.append(chunk.content)
+        if (!chunk.content.isNullOrEmpty()) ingestContent(chunk.content)
         if (chunk.finishReason != null) finishReason = chunk.finishReason
         if (chunk.extraContent != null) messageExtra = chunk.extraContent
         for (delta in chunk.toolCallDeltas) {
@@ -120,6 +136,35 @@ class StreamAccumulator {
             if (!delta.name.isNullOrEmpty()) slot.name = delta.name
             if (!delta.arguments.isNullOrEmpty()) slot.arguments.append(delta.arguments)
             if (delta.extraContent != null) slot.extraContent = delta.extraContent
+        }
+        return AppliedDelta(
+            reasoning = reasoning.substring(r0).ifEmpty { null },
+            content = content.substring(c0).ifEmpty { null },
+        )
+    }
+
+    private fun ingestContent(raw: String) {
+        var i = 0
+        while (i < raw.length) {
+            if (!inThinkTag) {
+                val hit = raw.findAnyOf(THINK_OPEN, i)
+                if (hit == null) {
+                    content.append(raw, i, raw.length)
+                    return
+                }
+                if (hit.first > i) content.append(raw, i, hit.first)
+                i = hit.first + hit.second.length
+                inThinkTag = true
+            } else {
+                val hit = raw.findAnyOf(THINK_CLOSE, i)
+                if (hit == null) {
+                    reasoning.append(raw, i, raw.length)
+                    return
+                }
+                if (hit.first > i) reasoning.append(raw, i, hit.first)
+                i = hit.first + hit.second.length
+                inThinkTag = false
+            }
         }
     }
 
@@ -152,6 +197,71 @@ private class MutableToolCall {
     var name: String = ""
     val arguments = StringBuilder()
     var extraContent: JsonObject? = null
+}
+
+private val THINK_OPEN = listOf("<think>", "<thinking>")
+private val THINK_CLOSE = listOf("</think>", "</thinking>")
+
+private fun extractReasoning(source: JsonObject): String? {
+    source.stringField("reasoning_content", "reasoning", "thinking")?.let { return it }
+    googleThought(source)?.let { return it }
+    val details = source["reasoning_details"]?.jsonArrayOrNull() ?: return null
+    val texts = details.mapNotNull { el ->
+        when (el) {
+            is JsonPrimitive -> el.contentOrNull
+            is JsonObject -> el.stringField("text", "content")
+            else -> null
+        }
+    }.filter { it.isNotEmpty() }
+    return texts.joinToString("").ifEmpty { null }
+}
+
+private fun extractContent(source: JsonObject): Pair<String?, String?> {
+    val raw = source["content"] ?: return null to null
+    return when (raw) {
+        is JsonPrimitive -> raw.contentOrNull to null
+        is JsonArray -> splitContentParts(raw)
+        else -> null to null
+    }
+}
+
+private fun splitContentParts(arr: JsonArray): Pair<String?, String?> {
+    val content = StringBuilder()
+    val reason = StringBuilder()
+    for (el in arr) {
+        val obj = el.jsonObjectOrNull() ?: continue
+        val type = obj.stringField("type").orEmpty().lowercase()
+        val text = obj.stringField("text", "content", "thinking", "reasoning", "thought")
+        if (text.isNullOrEmpty()) continue
+        if (type.contains("reason") || type.contains("think")) reason.append(text)
+        else content.append(text)
+    }
+    return content.toString().ifEmpty { null } to reason.toString().ifEmpty { null }
+}
+
+private fun googleThought(source: JsonObject): String? {
+    val google = source["extra_content"]?.jsonObjectOrNull()?.get("google")?.jsonObjectOrNull()
+        ?: source["google"]?.jsonObjectOrNull()
+        ?: return null
+    google.stringField("thought", "thinking", "text")?.let { return it }
+    val thoughts = google["thoughts"]?.jsonArrayOrNull() ?: return null
+    val parts = thoughts.mapNotNull { el ->
+        when (el) {
+            is JsonPrimitive -> el.contentOrNull
+            is JsonObject -> el.stringField("thought", "text", "content")
+            else -> null
+        }
+    }.filter { it.isNotEmpty() }
+    return parts.joinToString("").ifEmpty { null }
+}
+
+private fun JsonObject.stringField(vararg keys: String): String? {
+    for (key in keys) {
+        val value = this[key] as? JsonPrimitive ?: continue
+        val text = value.contentOrNull
+        if (!text.isNullOrEmpty()) return text
+    }
+    return null
 }
 
 private fun thoughtExtra(obj: JsonObject): JsonObject? {

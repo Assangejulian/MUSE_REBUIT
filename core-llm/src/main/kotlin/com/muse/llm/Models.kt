@@ -126,6 +126,73 @@ fun knownBaseUrls(): Set<String> = MODEL_CATALOG.map { it.defaultBase.trimEnd('/
 
 fun usesDeepSeekThinking(model: String): Boolean = modelOption(model).thinking
 
+fun providerUsesEffort(provider: ModelProvider): Boolean = when (provider) {
+    ModelProvider.DeepSeek, ModelProvider.Gemini, ModelProvider.OpenAI,
+    ModelProvider.Xai, ModelProvider.OpenRouter, ModelProvider.Qwen,
+    -> true
+    else -> false
+}
+
+private fun mappedEffort(effort: String, provider: ModelProvider): String {
+    if (provider == ModelProvider.DeepSeek) return effort
+    return if (effort == "low") "low" else "high"
+}
+
+private fun kotlinx.serialization.json.JsonObjectBuilder.putThinking(
+    model: String,
+    enabled: Boolean,
+    effort: String,
+) {
+    val provider = modelProvider(model)
+    val level = mappedEffort(effort, provider)
+    when (provider) {
+        ModelProvider.DeepSeek -> {
+            if (enabled) {
+                put("reasoning_effort", effort)
+                put("thinking", buildJsonObject { put("type", "enabled") })
+            } else {
+                put("thinking", buildJsonObject { put("type", "disabled") })
+            }
+        }
+        ModelProvider.Gemini -> {
+            if (!enabled) return
+            put("reasoning_effort", level)
+            put(
+                "extra_body",
+                buildJsonObject {
+                    put(
+                        "google",
+                        buildJsonObject {
+                            put(
+                                "thinking_config",
+                                buildJsonObject {
+                                    put("include_thoughts", true)
+                                    put("thinking_level", level)
+                                },
+                            )
+                        },
+                    )
+                },
+            )
+        }
+        ModelProvider.Qwen -> put("enable_thinking", enabled)
+        ModelProvider.OpenAI, ModelProvider.Xai -> if (enabled) put("reasoning_effort", level)
+        ModelProvider.Moonshot, ModelProvider.Zhipu -> {
+            put("thinking", buildJsonObject { put("type", if (enabled) "enabled" else "disabled") })
+        }
+        ModelProvider.OpenRouter -> if (enabled) {
+            put(
+                "reasoning",
+                buildJsonObject {
+                    put("effort", level)
+                    put("exclude", false)
+                },
+            )
+        }
+        ModelProvider.MiniMax -> Unit
+    }
+}
+
 fun usesThoughtSignature(model: String): Boolean = modelProvider(model) == ModelProvider.Gemini
 
 fun modelSupportsVision(model: String): Boolean = modelProvider(model) != ModelProvider.DeepSeek
@@ -281,14 +348,7 @@ data class ChatRequest(
                     tools,
                 ))
             }
-            if (deepseek) {
-                if (thinkingEnabled) {
-                    put("reasoning_effort", reasoningEffort)
-                    put("thinking", buildJsonObject { put("type", "enabled") })
-                } else {
-                    put("thinking", buildJsonObject { put("type", "disabled") })
-                }
-            }
+            putThinking(model, thinkingEnabled, reasoningEffort)
         }
         return MuseJson.encodeToString(JsonObject.serializer(), body)
     }

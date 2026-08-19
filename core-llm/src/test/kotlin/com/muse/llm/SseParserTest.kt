@@ -122,14 +122,15 @@ class ChatMessageApiTest {
     }
 
     @Test
-    fun geminiBodyOmitsDeepSeekThinking() {
+    fun geminiBodyAsksForThoughtsNotDeepSeekShape() {
         val body = ChatRequest(
             model = MODEL_GEMINI_FLASH,
             messages = listOf(ChatMessage(role = "user", content = "hi")),
             thinkingEnabled = true,
         ).toBody()
-        assertFalse(body.contains("reasoning_effort"))
-        assertFalse(body.contains("\"thinking\""))
+        assertTrue(body.contains("include_thoughts"))
+        assertTrue(body.contains("reasoning_effort"))
+        assertFalse(body.contains("\"type\":\"enabled\""))
         assertTrue(body.contains("gemini-2.5-flash"))
     }
 
@@ -213,14 +214,62 @@ class ChatMessageApiTest {
     }
 
     @Test
-    fun openaiBodyOmitsDeepSeekThinking() {
+    fun openaiBodyAsksForReasoningEffort() {
         val body = ChatRequest(
             model = MODEL_GPT_TERRA,
             messages = listOf(ChatMessage(role = "user", content = "hi")),
             thinkingEnabled = true,
         ).toBody()
-        assertFalse(body.contains("reasoning_effort"))
-        assertFalse(body.contains("\"thinking\""))
+        assertTrue(body.contains("reasoning_effort"))
+        assertFalse(body.contains("\"type\":\"enabled\""))
         assertTrue(body.contains("gpt-5.6-terra"))
+    }
+
+    @Test
+    fun parsesOpenAiReasoningField() {
+        val acc = StreamAccumulator()
+        val parsed = SseParser.parseLine(
+            """data: {"choices":[{"delta":{"reasoning":"先看界面"}}]}""",
+        ) as SseParse.Chunk
+        acc.apply(parsed.chunk)
+        assertEquals("先看界面", acc.reasoningText())
+    }
+
+    @Test
+    fun parsesGeminiThoughtText() {
+        val acc = StreamAccumulator()
+        val parsed = SseParser.parseLine(
+            """data: {"choices":[{"delta":{"extra_content":{"google":{"thought":"这是桌面"}}}}]}""",
+        ) as SseParse.Chunk
+        acc.apply(parsed.chunk)
+        assertEquals("这是桌面", acc.reasoningText())
+    }
+
+    @Test
+    fun splitsThinkTagsIntoReasoning() {
+        val acc = StreamAccumulator()
+        acc.apply(
+            (SseParser.parseLine(
+                """data: {"choices":[{"delta":{"content":"<think>先想"}}]}""",
+            ) as SseParse.Chunk).chunk,
+        )
+        acc.apply(
+            (SseParser.parseLine(
+                """data: {"choices":[{"delta":{"content":"一步</think>答案"}}]}""",
+            ) as SseParse.Chunk).chunk,
+        )
+        assertEquals("先想一步", acc.reasoningText())
+        assertEquals("答案", acc.contentText())
+    }
+
+    @Test
+    fun parsesContentArrayThinkingPart() {
+        val acc = StreamAccumulator()
+        val parsed = SseParser.parseLine(
+            """data: {"choices":[{"delta":{"content":[{"type":"thinking","thinking":"推理中"},{"type":"text","text":"好的"}]}}]}""",
+        ) as SseParse.Chunk
+        acc.apply(parsed.chunk)
+        assertEquals("推理中", acc.reasoningText())
+        assertEquals("好的", acc.contentText())
     }
 }

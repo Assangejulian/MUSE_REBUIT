@@ -28,3 +28,4 @@
 | `Muse-0.5.4-debug.apk` | 0.5.4 | 2026-08-19 | 按厂商扩目录：OpenAI / xAI / Kimi / GLM / MiniMax / OpenRouter；Gemini 3.x、Qwen 3.x |
 | `Muse-0.5.5-debug.apk` | 0.5.5 | 2026-08-19 | Gemini 3.7 Flash；厂商改为下拉框 |
 | `Muse-0.5.6-debug.apk` | 0.5.6 | 2026-08-19 | Gemini 回传 thought_signature；see_screen 把截图发给视觉模型 |
+| `Muse-0.5.7-debug.apk` | 0.5.7 | 2026-08-19 | 各厂商 CoT 显示；悬浮窗跟小球位置展开 |
