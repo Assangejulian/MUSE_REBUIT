@@ -18,6 +18,7 @@ val OBSERVE_TOOLS = setOf(
     "shizuku_status",
     "memory_read",
     "ocr_screen",
+    "see_screen",
     "schedule_list",
     "wait_for",
 )
@@ -59,6 +60,7 @@ fun museToolChoices(): List<ToolChoice> = listOf(
     ToolChoice("open_app", "打开应用"),
     ToolChoice("ui_snapshot", "看当前界面"),
     ToolChoice("ocr_screen", "屏幕 OCR"),
+    ToolChoice("see_screen", "看屏幕画面"),
     ToolChoice("float_window", "悬浮窗"),
     ToolChoice("schedule_task", "写入定时"),
     ToolChoice("schedule_list", "定时清单"),
@@ -151,6 +153,10 @@ fun museToolDefinitions(): List<ToolDefinition> = listOf(
     toolSchema(
         name = "ocr_screen",
         description = "OCR the current screen and return visible text with tap centers. Use when the accessibility tree is empty, custom-drawn, or you need to confirm what the user can see. Then tap those coordinates or click_text.",
+    ),
+    toolSchema(
+        name = "see_screen",
+        description = "Capture the current screen and send the actual JPEG to the model (vision). Use when the user asks if you can see the screen, or you need pixels/icons/photos instead of the accessibility node list.",
     ),
     toolSchema(
         name = "float_window",
@@ -306,7 +312,8 @@ If DeepSeek chat works, the phone has internet.
 Device control:
 1. ui_status if unsure. Prefer Accessibility over Shizuku tap.
 2. open_app to leave Muse
-3. ui_snapshot to see nodes (n1, n2…). Do not invent ids.
+3. ui_snapshot to see nodes (n1, n2…). Do not invent ids. That is a text tree, not a photo.
+3b. see_screen when the user asks you to look at the screen, or you need pixels (icons, photos, custom-drawn UI). It attaches a JPEG. DeepSeek cannot see images — say so and use ocr_screen / ui_snapshot instead.
 4. click_node or click_text. The Tool result already includes a fresh snapshot — use those new ids. If it says 界面未变化, the click did not land.
 5. type_text into the focused field. scroll up/down. keyevent BACK/HOME. Use wait_for when waiting for text/package/nodes instead of blind wait.
 6. tap/swipe/ui_dump only if snapshot has no useful nodes (custom-drawn UI).

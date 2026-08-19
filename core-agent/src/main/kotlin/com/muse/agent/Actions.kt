@@ -1,5 +1,10 @@
 package com.muse.agent
 
+data class ScreenImage(
+    val jpegBase64: String,
+    val note: String,
+)
+
 interface ActionPort {
     suspend fun openUrl(url: String): String
     suspend fun shareText(text: String): String
@@ -19,6 +24,7 @@ interface ActionPort {
     suspend fun scroll(direction: String): String
     suspend fun waitMs(ms: Int): String
     suspend fun ocrScreen(): String
+    suspend fun seeScreen(): ScreenImage
     suspend fun floatWindow(state: String): String
     suspend fun scheduleCreate(title: String, prompt: String, mode: String, `when`: String, repeat: String): String
     suspend fun scheduleList(): String

@@ -8,6 +8,8 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.util.Base64
+import com.muse.agent.ScreenImage
 import com.muse.agent.ActionPort
 import com.muse.agent.UrlBlocked
 import com.muse.agent.UrlGuard
@@ -21,6 +23,8 @@ import com.muse.memory.ScheduleEntity
 import com.muse.memory.ScheduleRepository
 import com.muse.memory.SettingsStore
 import kotlinx.coroutines.delay
+import java.io.ByteArrayOutputStream
+import kotlin.math.min
 
 class AndroidActions(
     context: Context,
@@ -262,6 +266,30 @@ class AndroidActions(
         }
     }
 
+    override suspend fun seeScreen(): ScreenImage {
+        val expanded = overlay?.isShowing() == true
+        if (expanded) overlay?.collapse(settings?.current()?.theme ?: "cream")
+        if (expanded) delay(80)
+        return try {
+            val shot = captureScreen() ?: return ScreenImage(
+                "",
+                "错误：截屏失败。打开无障碍（Android 11+）或连接 Shizuku。",
+            )
+            val jpeg = compressJpeg(shot.first)
+            shot.first.recycle()
+            if (jpeg.isEmpty()) return ScreenImage("", "错误：截屏编码失败。")
+            val b64 = Base64.encodeToString(jpeg, Base64.NO_WRAP)
+            ScreenImage(
+                b64,
+                "已附上当前屏幕截图（source=${shot.second}）。看画面用这张图；要点控件再 ui_snapshot。",
+            )
+        } catch (t: Throwable) {
+            ScreenImage("", "错误：截屏失败：${t.message ?: t::class.java.simpleName}")
+        } finally {
+            if (expanded) overlay?.show(settings?.current()?.theme ?: "cream")
+        }
+    }
+
     override suspend fun ocrScreen(): String {
         val expanded = overlay?.isShowing() == true
         if (expanded) overlay?.collapse(settings?.current()?.theme ?: "cream")
@@ -359,6 +387,24 @@ class AndroidActions(
         store.delete(job.id)
         clock?.cancel(job.id)
         return "已取消 ${job.id}「${job.title}」。"
+    }
+
+    private fun compressJpeg(src: Bitmap, maxSide: Int = 1280, quality: Int = 72): ByteArray {
+        val scaled = if (src.width > maxSide || src.height > maxSide) {
+            val ratio = min(maxSide.toFloat() / src.width, maxSide.toFloat() / src.height)
+            Bitmap.createScaledBitmap(
+                src,
+                (src.width * ratio).toInt().coerceAtLeast(1),
+                (src.height * ratio).toInt().coerceAtLeast(1),
+                true,
+            )
+        } else {
+            src
+        }
+        val out = ByteArrayOutputStream()
+        scaled.compress(Bitmap.CompressFormat.JPEG, quality, out)
+        if (scaled !== src) scaled.recycle()
+        return out.toByteArray()
     }
 
     private data class Shot(val first: Bitmap, val second: String)

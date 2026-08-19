@@ -104,7 +104,7 @@ class DeepSeekClient(
 fun humanizeHttpError(code: Int, raw: String): String {
     val parsed = extractErrorMessage(raw)
     return when (code) {
-        400 -> "请求被拒绝（400）${parsed?.let { "：$it" } ?: "。常见原因是 Tool 之后没有回传 reasoning_content。"}"
+        400 -> "请求被拒绝（400）${parsed?.let { "：$it" } ?: "。常见原因是 Tool 之后没有回传 reasoning_content / thought_signature。"}"
         401 -> "API Key 无效或已过期。"
         402 -> "账户余额不足。"
         429 -> "请求过于频繁，请稍后再试。"

@@ -126,6 +126,36 @@ fun knownBaseUrls(): Set<String> = MODEL_CATALOG.map { it.defaultBase.trimEnd('/
 
 fun usesDeepSeekThinking(model: String): Boolean = modelOption(model).thinking
 
+fun usesThoughtSignature(model: String): Boolean = modelProvider(model) == ModelProvider.Gemini
+
+fun modelSupportsVision(model: String): Boolean = modelProvider(model) != ModelProvider.DeepSeek
+
+fun imageUserJson(jpegBase64: String): JsonObject = buildJsonObject {
+    put("role", "user")
+    put(
+        "content",
+        buildJsonArray {
+            add(
+                buildJsonObject {
+                    put("type", "text")
+                    put("text", "[screen image]")
+                },
+            )
+            add(
+                buildJsonObject {
+                    put("type", "image_url")
+                    put(
+                        "image_url",
+                        buildJsonObject {
+                            put("url", "data:image/jpeg;base64,$jpegBase64")
+                        },
+                    )
+                },
+            )
+        },
+    )
+}
+
 @Serializable
 data class ToolFunctionCall(
     val name: String,
@@ -137,6 +167,8 @@ data class ToolCall(
     val id: String,
     val type: String = "function",
     val function: ToolFunctionCall,
+    @SerialName("extra_content")
+    val extraContent: JsonObject? = null,
 )
 
 @Serializable
@@ -150,8 +182,13 @@ data class ChatMessage(
     @SerialName("tool_call_id")
     val toolCallId: String? = null,
     val name: String? = null,
+    @kotlinx.serialization.Transient
+    val imageJpegBase64: String? = null,
 ) {
-    fun toApiJson(includeReasoning: Boolean = true): JsonObject = buildJsonObject {
+    fun toApiJson(
+        includeReasoning: Boolean = true,
+        includeThoughtSignature: Boolean = false,
+    ): JsonObject = buildJsonObject {
         put("role", role)
         when {
             role == "tool" -> put("content", content ?: "")
@@ -161,9 +198,14 @@ data class ChatMessage(
                     // DeepSeek returns 400 if reasoning_content is dropped after a tool call.
                     put("reasoning_content", reasoningContent ?: "")
                 }
+                val calls = if (includeThoughtSignature) {
+                    toolCalls
+                } else {
+                    toolCalls.map { it.copy(extraContent = null) }
+                }
                 put("tool_calls", ToolJson.encodeToJsonElement(ToolCall.serializer().let {
                     kotlinx.serialization.builtins.ListSerializer(it)
-                }, toolCalls))
+                }, calls))
             }
             else -> {
                 if (content != null) put("content", content)
@@ -218,7 +260,21 @@ data class ChatRequest(
             put("stream", stream)
             put("max_tokens", maxTokens.coerceIn(256, MAX_TOKENS_CAP))
             val deepseek = usesDeepSeekThinking(model)
-            put("messages", JsonArray(messages.map { it.toApiJson(includeReasoning = deepseek) }))
+            val gemini = usesThoughtSignature(model)
+            val vision = modelSupportsVision(model)
+            put(
+                "messages",
+                JsonArray(
+                    messages.flatMap { msg ->
+                        buildList {
+                            add(msg.toApiJson(includeReasoning = deepseek, includeThoughtSignature = gemini))
+                            if (vision) {
+                                msg.imageJpegBase64?.takeIf { it.isNotBlank() }?.let { add(imageUserJson(it)) }
+                            }
+                        }
+                    },
+                ),
+            )
             if (tools.isNotEmpty()) {
                 put("tools", ToolJson.encodeToJsonElement(
                     kotlinx.serialization.builtins.ListSerializer(ToolDefinition.serializer()),

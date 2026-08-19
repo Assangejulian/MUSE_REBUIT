@@ -6,6 +6,7 @@ import com.muse.llm.LlmClient
 import com.muse.llm.LlmEvent
 import com.muse.llm.MuseJson
 import com.muse.llm.ToolCall
+import com.muse.llm.modelSupportsVision
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -73,6 +74,7 @@ class AgentRuntime(
 
         val repeats = LinkedHashMap<String, Int>()
         var lastAssistant = ChatMessage(role = "assistant", content = "")
+        lastSeeScreenImage = null
         var finishedByTool = false
         val out = this
 
@@ -144,11 +146,14 @@ class AgentRuntime(
                     val clipped = clip(result)
                     val ok = !clipped.startsWith("错误：") && count < 3
                     emit(AgentEvent.ToolFinished(call.function.name, clipped, ok))
+                    val image = lastSeeScreenImage.also { lastSeeScreenImage = null }
+                        ?.takeIf { modelSupportsVision(config.model) }
                     val toolMsg = ChatMessage(
                         role = "tool",
                         content = clipped,
                         toolCallId = call.id,
                         name = call.function.name,
+                        imageJpegBase64 = image,
                     )
                     messages += toolMsg
                     persist(toolMsg)
@@ -173,6 +178,8 @@ class AgentRuntime(
             fail(t.message ?: "Agent 循环失败。")
         }
     }.flowOn(Dispatchers.IO)
+
+    private var lastSeeScreenImage: String? = null
 
     private suspend fun execute(call: ToolCall): String {
         val args = parseArgs(call.function.arguments)
@@ -214,6 +221,11 @@ class AgentRuntime(
                     "ui_status" -> actions.uiStatus()
                     "ui_snapshot" -> actions.uiSnapshot()
                     "ocr_screen" -> actions.ocrScreen()
+                    "see_screen" -> {
+                        val shot = actions.seeScreen()
+                        if (shot.jpegBase64.isNotBlank()) lastSeeScreenImage = shot.jpegBase64
+                        shot.note
+                    }
                     "schedule_task" -> actions.scheduleCreate(
                         title = args.string("title"),
                         prompt = args.string("prompt"),

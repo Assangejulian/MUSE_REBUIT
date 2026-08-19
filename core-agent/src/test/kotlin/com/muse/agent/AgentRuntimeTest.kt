@@ -6,6 +6,7 @@ import com.muse.llm.LlmClient
 import com.muse.llm.LlmEvent
 import com.muse.llm.ToolCall
 import com.muse.llm.ToolFunctionCall
+import com.muse.agent.ScreenImage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
@@ -63,6 +64,7 @@ class FakePorts : MemoryPort, NotePort, DevicePort, HttpPort, SearchPort, Action
     override suspend fun scroll(direction: String): String = "scroll $direction"
     override suspend fun waitMs(ms: Int): String = "wait $ms"
     override suspend fun ocrScreen(): String = "ocr:ok"
+    override suspend fun seeScreen(): ScreenImage = ScreenImage("", "see:ok")
     override suspend fun floatWindow(state: String): String = "float:$state"
     override suspend fun scheduleCreate(
         title: String,

@@ -1,5 +1,6 @@
 package com.muse.llm
 
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -151,6 +152,64 @@ class ChatMessageApiTest {
         val vendors = MODEL_CATALOG.map { it.provider }.toSet()
         assertTrue(vendors.containsAll(ModelProvider.entries.toSet()))
         assertTrue(MODEL_CATALOG.filter { it.thinking }.all { it.provider == ModelProvider.DeepSeek })
+    }
+
+    @Test
+    fun geminiToolCallEchoesThoughtSignature() {
+        val extra = kotlinx.serialization.json.buildJsonObject {
+            put("google", kotlinx.serialization.json.buildJsonObject { put("thought_signature", "SIG") })
+        }
+        val json = ChatMessage(
+            role = "assistant",
+            content = "",
+            toolCalls = listOf(
+                ToolCall(
+                    "call_1",
+                    function = ToolFunctionCall("ui_snapshot", "{}"),
+                    extraContent = extra,
+                ),
+            ),
+        ).toApiJson(includeReasoning = false, includeThoughtSignature = true)
+        val calls = json["tool_calls"] as kotlinx.serialization.json.JsonArray
+        val first = calls.first() as kotlinx.serialization.json.JsonObject
+        val google = (first["extra_content"] as kotlinx.serialization.json.JsonObject)["google"]
+            as kotlinx.serialization.json.JsonObject
+        assertEquals("\"SIG\"", google["thought_signature"].toString())
+        assertFalse(json.containsKey("reasoning_content"))
+    }
+
+    @Test
+    fun deepseekOmitsThoughtSignature() {
+        val extra = kotlinx.serialization.json.buildJsonObject {
+            put("google", kotlinx.serialization.json.buildJsonObject { put("thought_signature", "SIG") })
+        }
+        val json = ChatMessage(
+            role = "assistant",
+            content = "",
+            toolCalls = listOf(
+                ToolCall(
+                    "call_1",
+                    function = ToolFunctionCall("ui_snapshot", "{}"),
+                    extraContent = extra,
+                ),
+            ),
+        ).toApiJson(includeReasoning = true, includeThoughtSignature = false)
+        val calls = json["tool_calls"] as kotlinx.serialization.json.JsonArray
+        val first = calls.first() as kotlinx.serialization.json.JsonObject
+        assertFalse(first.containsKey("extra_content"))
+    }
+
+    @Test
+    fun parsesGeminiThoughtSignatureOnToolCall() {
+        val acc = StreamAccumulator()
+        val parsed = SseParser.parseLine(
+            """data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","type":"function","function":{"name":"ui_snapshot","arguments":"{}"},"extra_content":{"google":{"thought_signature":"abc"}}}]}}]}""",
+        ) as SseParse.Chunk
+        acc.apply(parsed.chunk)
+        val msg = acc.toAssistantMessage()
+        val extra = msg.toolCalls!!.first().extraContent!!
+        val google = extra["google"] as kotlinx.serialization.json.JsonObject
+        assertEquals("abc", google["thought_signature"]!!.toString().trim('"'))
     }
 
     @Test
