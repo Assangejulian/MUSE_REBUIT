@@ -111,7 +111,7 @@ class ScheduleHost(
                     history = emptyList(),
                     userText = userText,
                     config = AgentConfig(
-                        apiKey = settings.apiKey,
+                        apiKey = settings.keyForModel(),
                         baseUrl = settings.baseUrl,
                         model = settings.model,
                         reasoningEffort = settings.reasoningEffort,

@@ -24,9 +24,56 @@ val ToolJson = Json(MuseJson) {
 
 const val MODEL_FLASH = "deepseek-v4-flash"
 const val MODEL_PRO = "deepseek-v4-pro"
+const val MODEL_GEMINI_FLASH = "gemini-2.5-flash"
+const val MODEL_GEMINI_PRO = "gemini-2.5-pro"
+const val MODEL_QWEN_PLUS = "qwen-plus"
+const val MODEL_QWEN_MAX = "qwen-max"
 const val DEFAULT_BASE_URL = "https://api.deepseek.com"
+const val GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
+const val QWEN_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 const val DEFAULT_MAX_TOKENS = 4096
 const val MAX_TOKENS_CAP = 32_768
+
+enum class ModelProvider { DeepSeek, Gemini, Qwen }
+
+data class ModelOption(
+    val id: String,
+    val label: String,
+    val provider: ModelProvider,
+    val defaultBase: String,
+    val thinking: Boolean,
+)
+
+val MODEL_CATALOG: List<ModelOption> = listOf(
+    ModelOption(MODEL_FLASH, "Flash", ModelProvider.DeepSeek, DEFAULT_BASE_URL, true),
+    ModelOption(MODEL_PRO, "Pro", ModelProvider.DeepSeek, DEFAULT_BASE_URL, true),
+    ModelOption(MODEL_GEMINI_FLASH, "Flash", ModelProvider.Gemini, GEMINI_BASE_URL, false),
+    ModelOption(MODEL_GEMINI_PRO, "Pro", ModelProvider.Gemini, GEMINI_BASE_URL, false),
+    ModelOption(MODEL_QWEN_PLUS, "Plus", ModelProvider.Qwen, QWEN_BASE_URL, false),
+    ModelOption(MODEL_QWEN_MAX, "Max", ModelProvider.Qwen, QWEN_BASE_URL, false),
+)
+
+fun modelOption(id: String): ModelOption =
+    MODEL_CATALOG.firstOrNull { it.id == id } ?: MODEL_CATALOG.first()
+
+fun modelProvider(id: String): ModelProvider = modelOption(id).provider
+
+fun modelShortLabel(id: String): String {
+    val opt = modelOption(id)
+    return when (opt.provider) {
+        ModelProvider.DeepSeek -> opt.label
+        ModelProvider.Gemini -> "Gemini"
+        ModelProvider.Qwen -> "Qwen"
+    }
+}
+
+fun knownBaseUrls(): Set<String> = setOf(
+    DEFAULT_BASE_URL,
+    GEMINI_BASE_URL,
+    QWEN_BASE_URL,
+)
+
+fun usesDeepSeekThinking(model: String): Boolean = modelOption(model).thinking
 
 @Serializable
 data class ToolFunctionCall(
@@ -53,21 +100,23 @@ data class ChatMessage(
     val toolCallId: String? = null,
     val name: String? = null,
 ) {
-    fun toApiJson(): JsonObject = buildJsonObject {
+    fun toApiJson(includeReasoning: Boolean = true): JsonObject = buildJsonObject {
         put("role", role)
         when {
             role == "tool" -> put("content", content ?: "")
             toolCalls != null -> {
-                // DeepSeek returns 400 if reasoning_content is dropped after a tool call.
                 put("content", content ?: "")
-                put("reasoning_content", reasoningContent ?: "")
+                if (includeReasoning) {
+                    // DeepSeek returns 400 if reasoning_content is dropped after a tool call.
+                    put("reasoning_content", reasoningContent ?: "")
+                }
                 put("tool_calls", ToolJson.encodeToJsonElement(ToolCall.serializer().let {
                     kotlinx.serialization.builtins.ListSerializer(it)
                 }, toolCalls))
             }
             else -> {
                 if (content != null) put("content", content)
-                if (!reasoningContent.isNullOrEmpty()) {
+                if (includeReasoning && !reasoningContent.isNullOrEmpty()) {
                     put("reasoning_content", reasoningContent)
                 }
             }
@@ -117,18 +166,21 @@ data class ChatRequest(
             put("model", model)
             put("stream", stream)
             put("max_tokens", maxTokens.coerceIn(256, MAX_TOKENS_CAP))
-            put("messages", JsonArray(messages.map { it.toApiJson() }))
+            val deepseek = usesDeepSeekThinking(model)
+            put("messages", JsonArray(messages.map { it.toApiJson(includeReasoning = deepseek) }))
             if (tools.isNotEmpty()) {
                 put("tools", ToolJson.encodeToJsonElement(
                     kotlinx.serialization.builtins.ListSerializer(ToolDefinition.serializer()),
                     tools,
                 ))
             }
-            if (thinkingEnabled) {
-                put("reasoning_effort", reasoningEffort)
-                put("thinking", buildJsonObject { put("type", "enabled") })
-            } else {
-                put("thinking", buildJsonObject { put("type", "disabled") })
+            if (deepseek) {
+                if (thinkingEnabled) {
+                    put("reasoning_effort", reasoningEffort)
+                    put("thinking", buildJsonObject { put("type", "enabled") })
+                } else {
+                    put("thinking", buildJsonObject { put("type", "disabled") })
+                }
             }
         }
         return MuseJson.encodeToString(JsonObject.serializer(), body)

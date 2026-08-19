@@ -52,7 +52,6 @@ fun SessionsScreen(
 ) {
     val palette = LocalPalette.current
     val style = LocalMuseStyle.current
-    val fmt = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
     var pendingDelete by remember { mutableStateOf<SessionEntity?>(null) }
     Column(
         modifier = Modifier
@@ -76,38 +75,13 @@ fun SessionsScreen(
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = palette.crust),
         )
-        if (sessions.isEmpty()) {
-            Text("还没有 Session。", color = palette.subtext0, modifier = Modifier.padding(24.dp))
-        } else {
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                items(sessions, key = { it.id }) { session ->
-                    val selected = session.id == currentId
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 8.dp)
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(if (selected) palette.surface0 else palette.base)
-                            .then(
-                                if (style.isClaude) {
-                                    Modifier.border(1.dp, palette.surface1.copy(alpha = 0.7f), RoundedCornerShape(18.dp))
-                                } else Modifier,
-                            )
-                            .clickable { onOpen(session.id) }
-                            .padding(start = 14.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(modifier = Modifier.weight(1f).padding(vertical = 6.dp)) {
-                            Text(session.title, color = palette.text, fontWeight = FontWeight.Medium, fontSize = 16.sp)
-                            Text(fmt.format(Date(session.updatedAt)), color = palette.overlay1, fontSize = 12.sp)
-                        }
-                        IconButton(onClick = { pendingDelete = session }) {
-                            Icon(Icons.Outlined.Delete, contentDescription = "删除对话", tint = palette.overlay1)
-                        }
-                    }
-                }
-            }
-        }
+        SessionList(
+            sessions = sessions,
+            currentId = currentId,
+            onOpen = onOpen,
+            onAskDelete = { pendingDelete = it },
+            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        )
         pendingDelete?.let { session ->
             AlertDialog(
                 onDismissRequest = { pendingDelete = null },
@@ -126,6 +100,51 @@ fun SessionsScreen(
                     TextButton(onClick = { pendingDelete = null }) { Text("取消", color = palette.subtext0) }
                 },
             )
+        }
+    }
+}
+
+@Composable
+fun SessionList(
+    sessions: List<SessionEntity>,
+    currentId: String?,
+    onOpen: (String) -> Unit,
+    onAskDelete: (SessionEntity) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val palette = LocalPalette.current
+    val style = LocalMuseStyle.current
+    val fmt = remember { SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()) }
+    if (sessions.isEmpty()) {
+        Text("还没有 Session。", color = palette.subtext0, modifier = Modifier.padding(24.dp))
+        return
+    }
+    LazyColumn(modifier = modifier) {
+        items(sessions, key = { it.id }) { session ->
+            val selected = session.id == currentId
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(if (selected) palette.surface0 else palette.base)
+                    .then(
+                        if (style.isClaude) {
+                            Modifier.border(1.dp, palette.surface1.copy(alpha = 0.7f), RoundedCornerShape(18.dp))
+                        } else Modifier,
+                    )
+                    .clickable { onOpen(session.id) }
+                    .padding(start = 14.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(vertical = 6.dp)) {
+                    Text(session.title, color = palette.text, fontWeight = FontWeight.Medium, fontSize = 16.sp)
+                    Text(fmt.format(Date(session.updatedAt)), color = palette.overlay1, fontSize = 12.sp)
+                }
+                IconButton(onClick = { onAskDelete(session) }) {
+                    Icon(Icons.Outlined.Delete, contentDescription = "删除对话", tint = palette.overlay1)
+                }
+            }
         }
     }
 }

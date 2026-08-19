@@ -42,8 +42,12 @@ import com.muse.app.update.UpdateState
 import com.muse.design.LocalPalette
 import com.muse.llm.DEFAULT_MAX_TOKENS
 import com.muse.llm.MAX_TOKENS_CAP
+import com.muse.llm.MODEL_CATALOG
 import com.muse.llm.MODEL_FLASH
 import com.muse.llm.MODEL_PRO
+import com.muse.llm.ModelProvider
+import com.muse.llm.modelOption
+import com.muse.llm.modelProvider
 import com.muse.memory.MuseSettings
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,6 +81,8 @@ fun SettingsScreen(
 ) {
     val palette = LocalPalette.current
     var apiKey by remember(settings.apiKey) { mutableStateOf(settings.apiKey) }
+    var geminiKey by remember(settings.geminiKey) { mutableStateOf(settings.geminiKey) }
+    var qwenKey by remember(settings.qwenKey) { mutableStateOf(settings.qwenKey) }
     var baseUrl by remember(settings.baseUrl) { mutableStateOf(settings.baseUrl) }
     var maxTokens by remember(settings.maxTokens) { mutableStateOf(settings.maxTokens.toString()) }
     var memory by remember { mutableStateOf(memoryText) }
@@ -143,19 +149,40 @@ fun SettingsScreen(
             }
             Spacer(Modifier.height(24.dp))
             SectionLabel("Model")
+            val provider = modelProvider(settings.model)
             ChipRow(
-                options = listOf(MODEL_FLASH to "Flash", MODEL_PRO to "Pro"),
+                options = listOf(
+                    ModelProvider.DeepSeek.name to "DeepSeek",
+                    ModelProvider.Gemini.name to "Gemini",
+                    ModelProvider.Qwen.name to "Qwen",
+                ),
+                selected = provider.name,
+                onSelect = { name ->
+                    val p = ModelProvider.valueOf(name)
+                    val first = MODEL_CATALOG.first { it.provider == p }
+                    onChange { it.withModel(first.id) }
+                    baseUrl = modelOption(first.id).defaultBase
+                },
+            )
+            Spacer(Modifier.height(8.dp))
+            ChipRow(
+                options = MODEL_CATALOG.filter { it.provider == provider }.map { it.id to it.label },
                 selected = settings.model,
-                onSelect = { value -> onChange { it.copy(model = value) } },
+                onSelect = { value ->
+                    onChange { it.withModel(value) }
+                    baseUrl = modelOption(value).defaultBase
+                },
             )
             Spacer(Modifier.height(16.dp))
-            SectionLabel("Thinking effort")
-            ChipRow(
-                options = listOf("low" to "low", "high" to "high", "max" to "max"),
-                selected = settings.reasoningEffort,
-                onSelect = { value -> onChange { it.copy(reasoningEffort = value) } },
-            )
-            Spacer(Modifier.height(16.dp))
+            if (provider == ModelProvider.DeepSeek) {
+                SectionLabel("Thinking effort")
+                ChipRow(
+                    options = listOf("low" to "low", "high" to "high", "max" to "max"),
+                    selected = settings.reasoningEffort,
+                    onSelect = { value -> onChange { it.copy(reasoningEffort = value) } },
+                )
+                Spacer(Modifier.height(16.dp))
+            }
             SectionLabel("主题")
             ChipRow(
                 options = listOf(
@@ -241,10 +268,26 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(16.dp))
-            SectionLabel("API Key")
+            SectionLabel(
+                when (provider) {
+                    ModelProvider.Gemini -> "Gemini API Key"
+                    ModelProvider.Qwen -> "Qwen API Key"
+                    ModelProvider.DeepSeek -> "DeepSeek API Key"
+                },
+            )
             MuseField(
-                value = apiKey,
-                onValueChange = { apiKey = it },
+                value = when (provider) {
+                    ModelProvider.Gemini -> geminiKey
+                    ModelProvider.Qwen -> qwenKey
+                    ModelProvider.DeepSeek -> apiKey
+                },
+                onValueChange = {
+                    when (provider) {
+                        ModelProvider.Gemini -> geminiKey = it
+                        ModelProvider.Qwen -> qwenKey = it
+                        ModelProvider.DeepSeek -> apiKey = it
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(8.dp))
@@ -258,7 +301,12 @@ fun SettingsScreen(
             Button(
                 onClick = {
                     onChange {
-                        it.copy(apiKey = apiKey.trim(), baseUrl = baseUrl.trim().ifBlank { it.baseUrl })
+                        it.copy(
+                            apiKey = apiKey.trim(),
+                            geminiKey = geminiKey.trim(),
+                            qwenKey = qwenKey.trim(),
+                            baseUrl = baseUrl.trim().ifBlank { it.baseUrl },
+                        )
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = palette.mauve, contentColor = palette.crust),

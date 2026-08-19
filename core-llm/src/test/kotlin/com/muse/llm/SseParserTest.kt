@@ -121,6 +121,18 @@ class ChatMessageApiTest {
     }
 
     @Test
+    fun geminiBodyOmitsDeepSeekThinking() {
+        val body = ChatRequest(
+            model = MODEL_GEMINI_FLASH,
+            messages = listOf(ChatMessage(role = "user", content = "hi")),
+            thinkingEnabled = true,
+        ).toBody()
+        assertFalse(body.contains("reasoning_effort"))
+        assertFalse(body.contains("\"thinking\""))
+        assertTrue(body.contains("gemini-2.5-flash"))
+    }
+
+    @Test
     fun endpointNormalization() {
         assertEquals(
             "https://api.deepseek.com/chat/completions",

@@ -78,7 +78,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch {
             graph.settings.settings.collect { settings ->
-                _state.update { it.copy(settings = settings, hasKey = settings.apiKey.isNotBlank()) }
+                val has = settings.apiKey.isNotBlank() || settings.geminiKey.isNotBlank() || settings.qwenKey.isNotBlank()
+                _state.update { it.copy(settings = settings, hasKey = has) }
             }
         }
         viewModelScope.launch {
@@ -231,9 +232,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun toggleModel() {
-        graph.settings.update {
-            it.copy(model = if (it.model == MODEL_PRO) MODEL_FLASH else MODEL_PRO)
-        }
+        selectModel(
+            if (graph.settings.current().model == MODEL_PRO) MODEL_FLASH else MODEL_PRO,
+        )
+    }
+
+    fun selectModel(id: String) {
+        graph.settings.update { it.withModel(id) }
     }
 
     fun setTaskMode(on: Boolean) {
@@ -318,7 +323,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     history = history,
                     userText = text,
                     config = AgentConfig(
-                        apiKey = settings.apiKey,
+                        apiKey = settings.keyForModel(),
                         baseUrl = settings.baseUrl,
                         model = settings.model,
                         reasoningEffort = settings.reasoningEffort,

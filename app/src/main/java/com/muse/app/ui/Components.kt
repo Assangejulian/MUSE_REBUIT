@@ -108,7 +108,4 @@ fun EmptyHint(title: String, body: String) {
     }
 }
 
-fun modelLabel(model: String): String = when {
-    model.contains("pro", ignoreCase = true) -> "Pro"
-    else -> "Flash"
-}
+fun modelLabel(model: String): String = com.muse.llm.modelShortLabel(model)

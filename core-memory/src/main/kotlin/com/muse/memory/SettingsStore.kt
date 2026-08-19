@@ -7,6 +7,10 @@ import androidx.security.crypto.MasterKey
 import com.muse.llm.DEFAULT_BASE_URL
 import com.muse.llm.DEFAULT_MAX_TOKENS
 import com.muse.llm.MODEL_FLASH
+import com.muse.llm.ModelProvider
+import com.muse.llm.knownBaseUrls
+import com.muse.llm.modelOption
+import com.muse.llm.modelProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,7 +25,22 @@ data class MuseSettings(
     val theme: String = "cream",
     val floatOnTask: Boolean = true,
     val taskMode: Boolean = false,
-)
+    val geminiKey: String = "",
+    val qwenKey: String = "",
+) {
+    fun keyForModel(modelId: String = model): String = when (modelProvider(modelId)) {
+        ModelProvider.Gemini -> geminiKey.ifBlank { apiKey }
+        ModelProvider.Qwen -> qwenKey.ifBlank { apiKey }
+        ModelProvider.DeepSeek -> apiKey
+    }
+
+    fun withModel(id: String): MuseSettings {
+        val next = modelOption(id)
+        val trimmed = baseUrl.trim().trimEnd('/')
+        val switchUrl = trimmed.isEmpty() || trimmed in knownBaseUrls()
+        return copy(model = id, baseUrl = if (switchUrl) next.defaultBase else baseUrl)
+    }
+}
 
 class SettingsStore(context: Context) {
     private val prefs: SharedPreferences = createPrefs(context.applicationContext)
@@ -42,6 +61,8 @@ class SettingsStore(context: Context) {
             .putString(KEY_THEME, next.theme)
             .putBoolean(KEY_FLOAT, next.floatOnTask)
             .putBoolean(KEY_TASK_MODE, next.taskMode)
+            .putString(KEY_GEMINI, next.geminiKey)
+            .putString(KEY_QWEN, next.qwenKey)
             .apply()
         _settings.value = next
     }
@@ -56,6 +77,8 @@ class SettingsStore(context: Context) {
         theme = prefs.getString(KEY_THEME, "cream") ?: "cream",
         floatOnTask = prefs.getBoolean(KEY_FLOAT, true),
         taskMode = prefs.getBoolean(KEY_TASK_MODE, false),
+        geminiKey = prefs.getString(KEY_GEMINI, "").orEmpty(),
+        qwenKey = prefs.getString(KEY_QWEN, "").orEmpty(),
     )
 
     private fun createPrefs(context: Context): SharedPreferences {
@@ -87,5 +110,7 @@ class SettingsStore(context: Context) {
         const val KEY_THEME = "theme"
         const val KEY_FLOAT = "float_on_task"
         const val KEY_TASK_MODE = "task_mode"
+        const val KEY_GEMINI = "gemini_key"
+        const val KEY_QWEN = "qwen_key"
     }
 }

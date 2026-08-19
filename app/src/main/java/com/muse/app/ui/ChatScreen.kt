@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -49,19 +50,25 @@ import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,6 +81,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.muse.agent.museToolChoices
 import com.muse.app.ChatUiState
+import com.muse.llm.MODEL_CATALOG
+import com.muse.llm.ModelProvider
+import com.muse.llm.modelProvider
+import com.muse.memory.SessionEntity
+import kotlinx.coroutines.launch
 import com.muse.app.ScheduleReceipt
 import com.muse.app.UiMessage
 import com.muse.app.UiTool
@@ -90,8 +102,11 @@ fun ChatScreen(
     onStop: () -> Unit,
     onNewSession: () -> Unit,
     onOpenSessions: () -> Unit,
+    onOpenSession: (String) -> Unit = {},
     onOpenSettings: () -> Unit,
     onToggleModel: () -> Unit,
+    onSelectModel: (String) -> Unit = {},
+    onDeleteSession: (String) -> Unit = {},
     onOpenUpdate: () -> Unit = {},
     onSetTaskMode: (Boolean) -> Unit = {},
     onToggleExtraTool: (String) -> Unit = {},
@@ -104,7 +119,13 @@ fun ChatScreen(
     val style = LocalMuseStyle.current
     val context = LocalContext.current
     val listState = rememberLazyListState()
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
     var toolsOpen by remember { mutableStateOf(false) }
+    var modelOpen by remember { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf<SessionEntity?>(null) }
+    var lastSessionId by remember { mutableStateOf<String?>(null) }
+    var prevCount by remember { mutableIntStateOf(0) }
     val speech = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
             ?.firstOrNull()
@@ -119,12 +140,58 @@ fun ChatScreen(
         if (granted) startSpeech(context, speech::launch)
         else Toast.makeText(context, "需要麦克风权限才能语音输入。", Toast.LENGTH_SHORT).show()
     }
-    LaunchedEffect(state.messages.size, state.messages.lastOrNull()?.content, state.messages.lastOrNull()?.thinking) {
-        if (state.messages.isNotEmpty()) {
-            listState.animateScrollToItem(state.messages.lastIndex)
+    LaunchedEffect(
+        state.session?.id,
+        state.messages.size,
+        state.running,
+        state.messages.lastOrNull()?.content?.length,
+        state.messages.lastOrNull()?.thinking?.length,
+    ) {
+        if (state.messages.isEmpty()) {
+            prevCount = 0
+            return@LaunchedEffect
+        }
+        val last = state.messages.lastIndex
+        val sid = state.session?.id
+        val sessionChanged = sid != lastSessionId
+        val loadedBatch = prevCount == 0 && state.messages.size > 1
+        lastSessionId = sid
+        prevCount = state.messages.size
+        if (sessionChanged || loadedBatch) {
+            listState.scrollToItem(last)
+        } else if (state.running) {
+            listState.animateScrollToItem(last)
         }
     }
 
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = true,
+        drawerContent = {
+            ModalDrawerSheet(
+                modifier = Modifier.fillMaxWidth(0.86f).fillMaxHeight(),
+                drawerContainerColor = palette.crust,
+            ) {
+                Text(
+                    "Sessions",
+                    color = palette.text,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = style.brandSerif,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+                )
+                SessionList(
+                    sessions = state.sessions,
+                    currentId = state.session?.id,
+                    onOpen = { id ->
+                        onOpenSession(id)
+                        scope.launch { drawerState.close() }
+                    },
+                    onAskDelete = { pendingDelete = it },
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                )
+            }
+        },
+    ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -139,7 +206,7 @@ fun ChatScreen(
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onOpenSessions) {
+            IconButton(onClick = { scope.launch { drawerState.open() } }) {
                 Icon(Icons.Outlined.Forum, contentDescription = "Sessions", tint = palette.text)
             }
             Column(modifier = Modifier.weight(1f)) {
@@ -167,7 +234,7 @@ fun ChatScreen(
                 task = state.settings.taskMode,
                 onClick = { toolsOpen = true },
             )
-            ModelChip(label = modelLabel(state.settings.model), onClick = onToggleModel)
+            ModelChip(label = modelLabel(state.settings.model), onClick = { modelOpen = true })
             IconButton(onClick = onNewSession) {
                 Icon(Icons.Outlined.Add, contentDescription = "新对话", tint = palette.text)
             }
@@ -269,6 +336,82 @@ fun ChatScreen(
                 onShowBall()
             },
         )
+    }
+    if (modelOpen) {
+        ModelPickerSheet(
+            selected = state.settings.model,
+            onDismiss = { modelOpen = false },
+            onSelect = { id ->
+                onSelectModel(id)
+                modelOpen = false
+            },
+        )
+    }
+    pendingDelete?.let { session ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            containerColor = palette.base,
+            title = { Text("删除这条对话？", color = palette.text) },
+            text = { Text("「${session.title}」会从本机删掉。", color = palette.subtext0) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        onDeleteSession(session.id)
+                        pendingDelete = null
+                    },
+                ) { Text("删除", color = palette.red) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { pendingDelete = null }) {
+                    Text("取消", color = palette.subtext0)
+                }
+            },
+        )
+    }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun ModelPickerSheet(
+    selected: String,
+    onDismiss: () -> Unit,
+    onSelect: (String) -> Unit,
+) {
+    val palette = LocalPalette.current
+    val provider = modelProvider(selected)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = palette.base,
+    ) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+            Text("Model", color = palette.subtext0, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            Spacer(Modifier.height(10.dp))
+            ModelProvider.entries.forEach { p ->
+                Text(p.name, color = palette.overlay1, fontSize = 12.sp, modifier = Modifier.padding(bottom = 6.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(bottom = 12.dp),
+                ) {
+                    MODEL_CATALOG.filter { it.provider == p }.forEach { opt ->
+                        FilterChip(
+                            selected = selected == opt.id,
+                            onClick = { onSelect(opt.id) },
+                            label = { Text(opt.label) },
+                            colors = sheetChipColors(palette, selected == opt.id),
+                            shape = RoundedCornerShape(14.dp),
+                        )
+                    }
+                }
+            }
+            Text(
+                "Gemini / Qwen 用各自的 API Key（设置里）。还在默认地址时会自动换 Base URL。",
+                color = palette.overlay1,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(bottom = 20.dp),
+            )
+        }
     }
 }
 
