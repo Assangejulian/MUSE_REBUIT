@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -12,8 +13,20 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
@@ -25,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import com.muse.design.LocalPalette
 import com.muse.design.LocalMuseStyle
 import com.muse.design.MuseRadius
+import com.muse.llm.ModelProvider
 
 @Composable
 fun MuseField(
@@ -105,6 +119,67 @@ fun EmptyHint(title: String, body: String) {
         )
         Spacer(Modifier.height(10.dp))
         Text(body, color = palette.subtext0, fontSize = 15.sp, lineHeight = 23.sp)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProviderDropdown(
+    selected: ModelProvider,
+    onSelect: (ModelProvider) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val palette = LocalPalette.current
+    val style = LocalMuseStyle.current
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(MuseRadius))
+                .background(palette.base)
+                .border(
+                    1.dp,
+                    if (style.isClaude) palette.surface1.copy(alpha = 0.85f) else palette.surface1,
+                    RoundedCornerShape(MuseRadius),
+                )
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(selected.label, color = palette.text, fontSize = 16.sp)
+            Icon(
+                imageVector = Icons.Outlined.ExpandMore,
+                contentDescription = null,
+                tint = palette.overlay1,
+            )
+        }
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = palette.base,
+        ) {
+            ModelProvider.entries.forEach { p ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            p.label,
+                            color = if (p == selected) palette.mauve else palette.text,
+                            fontWeight = if (p == selected) FontWeight.Medium else FontWeight.Normal,
+                        )
+                    },
+                    onClick = {
+                        onSelect(p)
+                        expanded = false
+                    },
+                )
+            }
+        }
     }
 }
 

@@ -146,19 +146,18 @@ fun SettingsScreen(
                 }
             }
             Spacer(Modifier.height(24.dp))
-            SectionLabel("Model")
+            SectionLabel("厂商")
             val provider = modelProvider(settings.model)
-            ChipRow(
-                options = ModelProvider.entries.map { it.name to it.label },
-                selected = provider.name,
-                onSelect = { name ->
-                    val p = ModelProvider.valueOf(name)
+            ProviderDropdown(
+                selected = provider,
+                onSelect = { p ->
                     val first = MODEL_CATALOG.first { it.provider == p }
                     onChange { it.withModel(first.id) }
                     baseUrl = modelOption(first.id).defaultBase
                 },
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
+            SectionLabel("Model")
             ChipRow(
                 options = MODEL_CATALOG.filter { it.provider == provider }.map { it.id to it.label },
                 selected = settings.model,

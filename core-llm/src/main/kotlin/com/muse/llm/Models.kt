@@ -26,7 +26,7 @@ const val MODEL_FLASH = "deepseek-v4-flash"
 const val MODEL_PRO = "deepseek-v4-pro"
 const val MODEL_GEMINI_FLASH = "gemini-2.5-flash"
 const val MODEL_GEMINI_PRO = "gemini-2.5-pro"
-const val MODEL_GEMINI_36_FLASH = "gemini-3.6-flash"
+const val MODEL_GEMINI_37_FLASH = "gemini-3.7-flash"
 const val MODEL_GEMINI_31_PRO = "gemini-3.1-pro-preview"
 const val MODEL_QWEN_PLUS = "qwen-plus"
 const val MODEL_QWEN_MAX = "qwen-max"
@@ -86,7 +86,7 @@ val MODEL_CATALOG: List<ModelOption> = listOf(
     ModelOption(MODEL_QWEN_38_MAX, "3.8 Max", ModelProvider.Qwen, QWEN_BASE_URL, false),
     ModelOption(MODEL_GEMINI_FLASH, "2.5 Flash", ModelProvider.Gemini, GEMINI_BASE_URL, false),
     ModelOption(MODEL_GEMINI_PRO, "2.5 Pro", ModelProvider.Gemini, GEMINI_BASE_URL, false),
-    ModelOption(MODEL_GEMINI_36_FLASH, "3.6 Flash", ModelProvider.Gemini, GEMINI_BASE_URL, false),
+    ModelOption(MODEL_GEMINI_37_FLASH, "3.7 Flash", ModelProvider.Gemini, GEMINI_BASE_URL, false),
     ModelOption(MODEL_GEMINI_31_PRO, "3.1 Pro", ModelProvider.Gemini, GEMINI_BASE_URL, false),
     ModelOption(MODEL_GPT_SOL, "Sol", ModelProvider.OpenAI, OPENAI_BASE_URL, false),
     ModelOption(MODEL_GPT_TERRA, "Terra", ModelProvider.OpenAI, OPENAI_BASE_URL, false),
@@ -104,7 +104,11 @@ val MODEL_CATALOG: List<ModelOption> = listOf(
 )
 
 fun modelOption(id: String): ModelOption =
-    MODEL_CATALOG.firstOrNull { it.id == id } ?: MODEL_CATALOG.first()
+    MODEL_CATALOG.firstOrNull { it.id == id }
+        ?: when (id) {
+            "gemini-3.6-flash" -> MODEL_CATALOG.first { it.id == MODEL_GEMINI_37_FLASH }
+            else -> MODEL_CATALOG.first()
+        }
 
 fun modelProvider(id: String): ModelProvider = modelOption(id).provider
 

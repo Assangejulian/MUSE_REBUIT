@@ -84,7 +84,6 @@ import androidx.compose.ui.unit.sp
 import com.muse.agent.museToolChoices
 import com.muse.app.ChatUiState
 import com.muse.llm.MODEL_CATALOG
-import com.muse.llm.ModelProvider
 import com.muse.llm.modelProvider
 import com.muse.memory.SessionEntity
 import kotlinx.coroutines.launch
@@ -395,20 +394,10 @@ private fun ModelPickerSheet(
         ) {
             Text("厂商", color = palette.subtext0, fontSize = 12.sp, fontWeight = FontWeight.Medium)
             Spacer(Modifier.height(10.dp))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                ModelProvider.entries.forEach { p ->
-                    FilterChip(
-                        selected = provider == p,
-                        onClick = { provider = p },
-                        label = { Text(p.label) },
-                        colors = sheetChipColors(palette, provider == p),
-                        shape = RoundedCornerShape(14.dp),
-                    )
-                }
-            }
+            ProviderDropdown(
+                selected = provider,
+                onSelect = { provider = it },
+            )
             Spacer(Modifier.height(16.dp))
             Text("Model", color = palette.subtext0, fontSize = 12.sp, fontWeight = FontWeight.Medium)
             Spacer(Modifier.height(10.dp))

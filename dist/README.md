@@ -26,3 +26,4 @@
 | `Muse-0.5.2-debug.apk` | 0.5.2 | 2026-08-14 | 开跑体检；wait_for；点击未跳转留证；定时回执 |
 | `Muse-0.5.3-debug.apk` | 0.5.3 | 2026-08-14 | 左滑出历史；打开 Session 不再从头滑；Gemini/Qwen |
 | `Muse-0.5.4-debug.apk` | 0.5.4 | 2026-08-19 | 按厂商扩目录：OpenAI / xAI / Kimi / GLM / MiniMax / OpenRouter；Gemini 3.x、Qwen 3.x |
+| `Muse-0.5.5-debug.apk` | 0.5.5 | 2026-08-19 | Gemini 3.7 Flash；厂商改为下拉框 |
