@@ -84,7 +84,7 @@ import androidx.compose.ui.unit.sp
 import com.muse.agent.museToolChoices
 import com.muse.app.ChatUiState
 import com.muse.llm.MODEL_CATALOG
-import com.muse.llm.modelProvider
+import com.muse.llm.ModelProvider
 import com.muse.memory.SessionEntity
 import kotlinx.coroutines.launch
 import com.muse.app.ScheduleReceipt
@@ -106,7 +106,7 @@ fun ChatScreen(
     onOpenSession: (String) -> Unit = {},
     onOpenSettings: () -> Unit,
     onToggleModel: () -> Unit,
-    onSelectModel: (String) -> Unit = {},
+    onSelectModel: (String, ModelProvider?) -> Unit = { _, _ -> },
     onDeleteSession: (String) -> Unit = {},
     onOpenUpdate: () -> Unit = {},
     onSetTaskMode: (Boolean) -> Unit = {},
@@ -341,9 +341,10 @@ fun ChatScreen(
     if (modelOpen) {
         ModelPickerSheet(
             selected = state.settings.model,
+            selectedProvider = state.settings.resolvedProvider(),
             onDismiss = { modelOpen = false },
-            onSelect = { id ->
-                onSelectModel(id)
+            onSelect = { id, provider ->
+                onSelectModel(id, provider)
                 modelOpen = false
             },
         )
@@ -376,11 +377,13 @@ fun ChatScreen(
 @Composable
 private fun ModelPickerSheet(
     selected: String,
+    selectedProvider: ModelProvider,
     onDismiss: () -> Unit,
-    onSelect: (String) -> Unit,
+    onSelect: (String, ModelProvider) -> Unit,
 ) {
     val palette = LocalPalette.current
-    var provider by remember { mutableStateOf(modelProvider(selected)) }
+    var provider by remember { mutableStateOf(selectedProvider) }
+    var customId by remember(selected) { mutableStateOf(selected) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -407,16 +410,39 @@ private fun ModelPickerSheet(
             ) {
                 MODEL_CATALOG.filter { it.provider == provider }.forEach { opt ->
                     FilterChip(
-                        selected = selected == opt.id,
-                        onClick = { onSelect(opt.id) },
+                        selected = selected == opt.id && provider == selectedProvider,
+                        onClick = { onSelect(opt.id, opt.provider) },
                         label = { Text(opt.label) },
-                        colors = sheetChipColors(palette, selected == opt.id),
+                        colors = sheetChipColors(palette, selected == opt.id && provider == selectedProvider),
                         shape = RoundedCornerShape(14.dp),
                     )
                 }
             }
+            Spacer(Modifier.height(12.dp))
+            Text("自定义 Model ID", color = palette.subtext0, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            Spacer(Modifier.height(8.dp))
+            MuseField(
+                value = customId,
+                onValueChange = { customId = it },
+                placeholder = "官方 id，如 deepseek-v4-flash",
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(8.dp))
             Text(
-                "每个厂商用自己的 API Key（设置里）。还在默认地址时会自动换 Base URL。Claude 走 OpenRouter。",
+                "使用此 ID",
+                color = palette.base,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(palette.mauve)
+                    .clickable(enabled = customId.trim().isNotEmpty()) {
+                        onSelect(customId.trim(), provider)
+                    }
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+            )
+            Text(
+                "不在列表里的官方 id 也可以填，走当前厂商的 API Key 和 Base URL。",
                 color = palette.overlay1,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 12.dp, bottom = 20.dp),

@@ -6,6 +6,7 @@ import com.muse.llm.LlmClient
 import com.muse.llm.LlmEvent
 import com.muse.llm.MuseJson
 import com.muse.llm.ToolCall
+import com.muse.llm.ModelProvider
 import com.muse.llm.modelSupportsVision
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +29,7 @@ data class AgentConfig(
     val maxTokens: Int,
     val toolNames: List<String>? = null,
     val healthText: String? = null,
+    val provider: ModelProvider? = null,
 )
 
 sealed class AgentEvent {
@@ -101,6 +103,7 @@ class AgentRuntime(
                     maxTokens = config.maxTokens,
                     reasoningEffort = config.reasoningEffort,
                     thinkingEnabled = config.thinkingEnabled,
+                    provider = config.provider,
                 )
                 var failed: LlmEvent.Failed? = null
                 var finished: ChatMessage? = null
@@ -147,7 +150,7 @@ class AgentRuntime(
                     val ok = !clipped.startsWith("错误：") && count < 3
                     emit(AgentEvent.ToolFinished(call.function.name, clipped, ok))
                     val image = lastSeeScreenImage.also { lastSeeScreenImage = null }
-                        ?.takeIf { modelSupportsVision(config.model) }
+                        ?.takeIf { modelSupportsVision(config.model, config.provider) }
                     val toolMsg = ChatMessage(
                         role = "tool",
                         content = clipped,

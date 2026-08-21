@@ -82,7 +82,7 @@ class MainActivity : ComponentActivity(), TaskHost {
                                 onOpenSessions = { nav.navigate("sessions") },
                                 onOpenSettings = { nav.navigate("settings") },
                                 onToggleModel = viewModel::toggleModel,
-                                onSelectModel = viewModel::selectModel,
+                                onSelectModel = { id, provider -> viewModel.selectModel(id, provider) },
                                 onDeleteSession = viewModel::deleteSession,
                                 onOpenSession = { id -> viewModel.openSession(id) },
                                 onOpenUpdate = { nav.navigate("settings") },

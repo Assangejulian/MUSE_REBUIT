@@ -31,3 +31,4 @@
 | `Muse-0.5.7-debug.apk` | 0.5.7 | 2026-08-19 | 各厂商 CoT 显示；悬浮窗跟小球位置展开 |
 | `Muse-0.5.8-debug.apk` | 0.5.8 | 2026-08-19 | Gemini 只发 thinking_config，不再和 reasoning_effort 打架 |
 | `Muse-0.5.9-debug.apk` | 0.5.9 | 2026-08-19 | Gemini `<thought>` 收到思考区；不再把 true 当成思维链 |
+| `Muse-0.6.0-debug.apk` | 0.6.0 | 2026-08-19 | 自定义 Model ID，未知 id 不再掉回 Flash |

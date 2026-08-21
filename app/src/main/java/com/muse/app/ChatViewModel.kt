@@ -11,6 +11,8 @@ import com.muse.app.update.UpdateState
 import com.muse.llm.ChatMessage
 import com.muse.llm.MODEL_FLASH
 import com.muse.llm.MODEL_PRO
+import com.muse.llm.ModelProvider
+import com.muse.llm.catalogOption
 import com.muse.memory.MuseSettings
 import com.muse.memory.ScheduleEntity
 import com.muse.memory.SessionEntity
@@ -237,8 +239,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    fun selectModel(id: String) {
-        graph.settings.update { it.withModel(id) }
+    fun selectModel(id: String, provider: ModelProvider? = null) {
+        graph.settings.update { cur ->
+            val hit = catalogOption(id)
+            if (hit != null) cur.withModel(hit.id)
+            else cur.withCustomModel(id, provider ?: cur.resolvedProvider())
+        }
     }
 
     fun setTaskMode(on: Boolean) {
@@ -331,6 +337,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         maxTokens = settings.maxTokens,
                         toolNames = if (task) null else _state.value.extraTools.toList(),
                         healthText = health,
+                        provider = settings.resolvedProvider(),
                     ),
                 ).collect { event ->
                     when (event) {

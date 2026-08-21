@@ -157,6 +157,31 @@ class ChatMessageApiTest {
     }
 
     @Test
+    fun customIdDoesNotFallBackToFlash() {
+        val opt = modelOption("deepseek-vl-test", ModelProvider.DeepSeek)
+        assertEquals("deepseek-vl-test", opt.id)
+        assertEquals(ModelProvider.DeepSeek, opt.provider)
+        assertTrue(opt.thinking)
+        val gemini = modelOption("gemini-custom-x", ModelProvider.Gemini)
+        assertEquals("gemini-custom-x", gemini.id)
+        assertEquals(ModelProvider.Gemini, gemini.provider)
+        assertFalse(gemini.thinking)
+    }
+
+    @Test
+    fun customGeminiBodyUsesHintNotDeepSeekThinking() {
+        val body = ChatRequest(
+            model = "gemini-foo",
+            messages = listOf(ChatMessage(role = "user", content = "hi")),
+            thinkingEnabled = true,
+            provider = ModelProvider.Gemini,
+        ).toBody()
+        assertTrue(body.contains("\"model\":\"gemini-foo\""))
+        assertTrue(body.contains("include_thoughts"))
+        assertFalse(body.contains("\"type\":\"enabled\""))
+    }
+
+    @Test
     fun geminiToolCallEchoesThoughtSignature() {
         val extra = kotlinx.serialization.json.buildJsonObject {
             put("google", kotlinx.serialization.json.buildJsonObject { put("thought_signature", "SIG") })

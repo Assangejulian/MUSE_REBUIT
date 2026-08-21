@@ -45,7 +45,6 @@ import com.muse.llm.MAX_TOKENS_CAP
 import com.muse.llm.MODEL_CATALOG
 import com.muse.llm.ModelProvider
 import com.muse.llm.modelOption
-import com.muse.llm.modelProvider
 import com.muse.llm.providerUsesEffort
 import com.muse.memory.MuseSettings
 
@@ -148,13 +147,15 @@ fun SettingsScreen(
             }
             Spacer(Modifier.height(24.dp))
             SectionLabel("厂商")
-            val provider = modelProvider(settings.model)
+            val provider = settings.resolvedProvider()
+            var modelId by remember(settings.model) { mutableStateOf(settings.model) }
             ProviderDropdown(
                 selected = provider,
                 onSelect = { p ->
                     val first = MODEL_CATALOG.first { it.provider == p }
                     onChange { it.withModel(first.id) }
-                    baseUrl = modelOption(first.id).defaultBase
+                    modelId = first.id
+                    baseUrl = first.defaultBase
                 },
             )
             Spacer(Modifier.height(12.dp))
@@ -164,8 +165,37 @@ fun SettingsScreen(
                 selected = settings.model,
                 onSelect = { value ->
                     onChange { it.withModel(value) }
+                    modelId = value
                     baseUrl = modelOption(value).defaultBase
                 },
+            )
+            Spacer(Modifier.height(12.dp))
+            SectionLabel("自定义 Model ID")
+            MuseField(
+                value = modelId,
+                onValueChange = { modelId = it },
+                placeholder = "官方 id，如 deepseek-v4-flash",
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = {
+                    val id = modelId.trim()
+                    if (id.isEmpty()) return@Button
+                    onChange { current ->
+                        val next = current.withCustomModel(id, provider)
+                        baseUrl = next.baseUrl
+                        next
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = palette.mauve, contentColor = palette.crust),
+                shape = RoundedCornerShape(14.dp),
+            ) { Text("使用此 ID") }
+            Text(
+                "不在芯片里的官方 id 也可以填，走当前厂商的 Key 和 Base URL。",
+                color = palette.overlay1,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 6.dp),
             )
             Spacer(Modifier.height(16.dp))
             SectionLabel("Thinking")
@@ -292,6 +322,8 @@ fun SettingsScreen(
                         ModelProvider.entries.forEach { p ->
                             next = next.withProviderKey(p, keyDrafts[p.name].orEmpty())
                         }
+                        val id = modelId.trim()
+                        if (id.isNotEmpty()) next = next.withCustomModel(id, provider)
                         next
                     }
                 },

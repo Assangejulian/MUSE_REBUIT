@@ -119,6 +119,7 @@ class ScheduleHost(
                         maxTokens = settings.maxTokens,
                         toolNames = if (task) null else emptyList(),
                         healthText = health,
+                        provider = settings.resolvedProvider(),
                     ),
                 ).collect { event ->
                     when (event) {

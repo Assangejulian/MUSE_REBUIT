@@ -103,18 +103,47 @@ val MODEL_CATALOG: List<ModelOption> = listOf(
     ModelOption(MODEL_OR_TERRA, "GPT Terra", ModelProvider.OpenRouter, OPENROUTER_BASE_URL, false),
 )
 
-fun modelOption(id: String): ModelOption =
+fun catalogOption(id: String): ModelOption? =
     MODEL_CATALOG.firstOrNull { it.id == id }
         ?: when (id) {
             "gemini-3.6-flash" -> MODEL_CATALOG.first { it.id == MODEL_GEMINI_37_FLASH }
-            else -> MODEL_CATALOG.first()
+            else -> null
         }
 
-fun modelProvider(id: String): ModelProvider = modelOption(id).provider
+fun providerBase(provider: ModelProvider): String =
+    MODEL_CATALOG.firstOrNull { it.provider == provider }?.defaultBase ?: DEFAULT_BASE_URL
 
-fun modelShortLabel(id: String): String {
-    val opt = modelOption(id)
-    return if (opt.provider == ModelProvider.DeepSeek) opt.label else opt.provider.label
+fun customModelLabel(id: String): String {
+    val trimmed = id.trim()
+    if (trimmed.isEmpty()) return "自定义"
+    return if (trimmed.length <= 22) trimmed else "…" + trimmed.takeLast(21)
+}
+
+fun resolveProvider(model: String, hint: ModelProvider? = null): ModelProvider =
+    catalogOption(model)?.provider ?: hint ?: ModelProvider.DeepSeek
+
+fun modelOption(id: String, hint: ModelProvider? = null): ModelOption {
+    catalogOption(id)?.let { return it }
+    val provider = hint ?: ModelProvider.DeepSeek
+    return ModelOption(
+        id = id.trim(),
+        label = customModelLabel(id),
+        provider = provider,
+        defaultBase = providerBase(provider),
+        thinking = provider == ModelProvider.DeepSeek,
+    )
+}
+
+fun modelProvider(id: String, hint: ModelProvider? = null): ModelProvider =
+    resolveProvider(id, hint)
+
+fun modelShortLabel(id: String, hint: ModelProvider? = null): String {
+    val catalog = catalogOption(id)
+    return when {
+        catalog == null -> customModelLabel(id)
+        catalog.provider == ModelProvider.DeepSeek -> catalog.label
+        else -> catalog.provider.label
+    }
 }
 
 fun knownBaseUrls(): Set<String> = MODEL_CATALOG.map { it.defaultBase.trimEnd('/') }.toSet() + setOf(
@@ -124,7 +153,8 @@ fun knownBaseUrls(): Set<String> = MODEL_CATALOG.map { it.defaultBase.trimEnd('/
     "https://api.minimaxi.com/v1",
 )
 
-fun usesDeepSeekThinking(model: String): Boolean = modelOption(model).thinking
+fun usesDeepSeekThinking(model: String, hint: ModelProvider? = null): Boolean =
+    modelOption(model, hint).thinking
 
 fun providerUsesEffort(provider: ModelProvider): Boolean = when (provider) {
     ModelProvider.DeepSeek, ModelProvider.Gemini, ModelProvider.OpenAI,
@@ -142,8 +172,9 @@ private fun kotlinx.serialization.json.JsonObjectBuilder.putThinking(
     model: String,
     enabled: Boolean,
     effort: String,
+    hint: ModelProvider? = null,
 ) {
-    val provider = modelProvider(model)
+    val provider = resolveProvider(model, hint)
     val level = mappedEffort(effort, provider)
     when (provider) {
         ModelProvider.DeepSeek -> {
@@ -192,9 +223,11 @@ private fun kotlinx.serialization.json.JsonObjectBuilder.putThinking(
     }
 }
 
-fun usesThoughtSignature(model: String): Boolean = modelProvider(model) == ModelProvider.Gemini
+fun usesThoughtSignature(model: String, hint: ModelProvider? = null): Boolean =
+    resolveProvider(model, hint) == ModelProvider.Gemini
 
-fun modelSupportsVision(model: String): Boolean = modelProvider(model) != ModelProvider.DeepSeek
+fun modelSupportsVision(model: String, hint: ModelProvider? = null): Boolean =
+    resolveProvider(model, hint) != ModelProvider.DeepSeek
 
 fun imageUserJson(jpegBase64: String): JsonObject = buildJsonObject {
     put("role", "user")
@@ -319,15 +352,17 @@ data class ChatRequest(
     val maxTokens: Int = DEFAULT_MAX_TOKENS,
     val reasoningEffort: String = "high",
     val thinkingEnabled: Boolean = true,
+    val provider: ModelProvider? = null,
 ) {
     fun toBody(): String {
         val body = buildJsonObject {
             put("model", model)
             put("stream", stream)
             put("max_tokens", maxTokens.coerceIn(256, MAX_TOKENS_CAP))
-            val deepseek = usesDeepSeekThinking(model)
-            val gemini = usesThoughtSignature(model)
-            val vision = modelSupportsVision(model)
+            val resolved = resolveProvider(model, provider)
+            val deepseek = usesDeepSeekThinking(model, resolved)
+            val gemini = usesThoughtSignature(model, resolved)
+            val vision = modelSupportsVision(model, resolved)
             put(
                 "messages",
                 JsonArray(
@@ -347,7 +382,7 @@ data class ChatRequest(
                     tools,
                 ))
             }
-            putThinking(model, thinkingEnabled, reasoningEffort)
+            putThinking(model, thinkingEnabled, reasoningEffort, resolved)
         }
         return MuseJson.encodeToString(JsonObject.serializer(), body)
     }

@@ -8,9 +8,10 @@ import com.muse.llm.DEFAULT_BASE_URL
 import com.muse.llm.DEFAULT_MAX_TOKENS
 import com.muse.llm.MODEL_FLASH
 import com.muse.llm.ModelProvider
+import com.muse.llm.catalogOption
 import com.muse.llm.knownBaseUrls
-import com.muse.llm.modelOption
-import com.muse.llm.modelProvider
+import com.muse.llm.providerBase
+import com.muse.llm.resolveProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,7 +35,14 @@ data class MuseSettings(
     val geminiKey: String = "",
     val qwenKey: String = "",
     val extraKeys: Map<String, String> = emptyMap(),
+    val providerName: String = ModelProvider.DeepSeek.name,
 ) {
+    fun resolvedProvider(modelId: String = model): ModelProvider =
+        resolveProvider(
+            modelId,
+            runCatching { ModelProvider.valueOf(providerName) }.getOrNull(),
+        )
+
     fun keyForProvider(provider: ModelProvider): String = when (provider) {
         ModelProvider.DeepSeek -> apiKey
         ModelProvider.Gemini -> geminiKey
@@ -42,7 +50,7 @@ data class MuseSettings(
         else -> extraKeys[provider.name].orEmpty()
     }
 
-    fun keyForModel(modelId: String = model): String = keyForProvider(modelProvider(modelId))
+    fun keyForModel(modelId: String = model): String = keyForProvider(resolvedProvider(modelId))
 
     fun hasAnyKey(): Boolean =
         apiKey.isNotBlank() || geminiKey.isNotBlank() || qwenKey.isNotBlank() ||
@@ -59,10 +67,27 @@ data class MuseSettings(
     }
 
     fun withModel(id: String): MuseSettings {
-        val next = modelOption(id)
+        val catalog = catalogOption(id)
+        if (catalog == null) return withCustomModel(id, resolvedProvider())
         val trimmed = baseUrl.trim().trimEnd('/')
         val switchUrl = trimmed.isEmpty() || trimmed in knownBaseUrls()
-        return copy(model = id, baseUrl = if (switchUrl) next.defaultBase else baseUrl)
+        return copy(
+            model = catalog.id,
+            providerName = catalog.provider.name,
+            baseUrl = if (switchUrl) catalog.defaultBase else baseUrl,
+        )
+    }
+
+    fun withCustomModel(id: String, provider: ModelProvider = resolvedProvider()): MuseSettings {
+        val trimmed = id.trim()
+        if (trimmed.isEmpty()) return this
+        catalogOption(trimmed)?.let { return withModel(it.id) }
+        val switchUrl = baseUrl.trim().trimEnd('/').let { it.isEmpty() || it in knownBaseUrls() }
+        return copy(
+            model = trimmed,
+            providerName = provider.name,
+            baseUrl = if (switchUrl) providerBase(provider) else baseUrl,
+        )
     }
 }
 
@@ -88,6 +113,7 @@ class SettingsStore(context: Context) {
             .putString(KEY_GEMINI, next.geminiKey)
             .putString(KEY_QWEN, next.qwenKey)
             .putString(KEY_EXTRA, encodeKeys(next.extraKeys))
+            .putString(KEY_PROVIDER, next.providerName)
             .apply()
         _settings.value = next
     }
@@ -105,6 +131,10 @@ class SettingsStore(context: Context) {
         geminiKey = prefs.getString(KEY_GEMINI, "").orEmpty(),
         qwenKey = prefs.getString(KEY_QWEN, "").orEmpty(),
         extraKeys = decodeKeys(prefs.getString(KEY_EXTRA, "").orEmpty()),
+        providerName = prefs.getString(KEY_PROVIDER, "").orEmpty().ifBlank {
+            catalogOption(prefs.getString(KEY_MODEL, MODEL_FLASH) ?: MODEL_FLASH)?.provider?.name
+                ?: ModelProvider.DeepSeek.name
+        },
     )
 
     private fun createPrefs(context: Context): SharedPreferences {
@@ -139,6 +169,7 @@ class SettingsStore(context: Context) {
         const val KEY_GEMINI = "gemini_key"
         const val KEY_QWEN = "qwen_key"
         const val KEY_EXTRA = "provider_keys"
+        const val KEY_PROVIDER = "provider_name"
     }
 }
 
